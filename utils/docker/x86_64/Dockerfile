@@ -1,14 +1,21 @@
 FROM ubuntu:bionic
 
-RUN  apt-get update && apt-get install -y \
- socat dsniff git ntpdate python build-essential vim lsof gdb screen python3 python3-setuptools python3-pip npm net-tools
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN chmod -R 777 /tmp/
+
+RUN apt-get update && apt-get install -y \
+ software-properties-common socat dsniff git ntpdate python build-essential lsof gdb screen python3 python3-setuptools python3-pip npm net-tools
+ 
+RUN add-apt-repository ppa:certbot/certbot
 
 ENV TZ 'Europe/Rome'
-ENV DEBIAN_FRONTEND=noninteractive
 RUN echo $TZ > /etc/timezone && apt-get update && apt-get install -y tzdata && rm -f /etc/localtime && ln -nfs /usr/share/zoneinfo/$TZ /etc/localtime && dpkg-reconfigure -f noninteractive tzdata
 
-RUN apt-get install -y nginx python-certbot-nginx
+RUN apt-get update && apt-get install -y nginx python-certbot-nginx
 RUN sed -i 's/# server_names_hash_bucket_size 64;/server_names_hash_bucket_size 64;/g' /etc/nginx/nginx.conf 
+
+#RUN apt-get install -y certbot
 
 RUN rm -rf /var/lib/apt/lists/*
 

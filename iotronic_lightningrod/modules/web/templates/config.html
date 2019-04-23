@@ -84,6 +84,7 @@ $(function(){
 
   <div class="form-group">
     <form method="post">
+
       <div class="form-group">
         <label for="urlwagent">Registration Agent URL:</label>
         <input  class="form-control" name="urlwagent" id="urlwagent"  value="{{ urlwagent }}"  required  placeholder="ws(s)://<WAGENT-ADDRESS>:<WAGENT-PORT>">
@@ -92,7 +93,14 @@ $(function(){
         <label for="code">Registration Code:</label>
         <input class="form-control" name="code" id="code"  value="{{ code }}" required>
       </div>
+
+      <div class="form-group">
+        <label for="hostname">Device hostname:</label>
+        <input class="form-control" name="hostname" id="hostname"  value="{{ hostname }}" >
+      </div>
+
       <input class="btn btn-success" type="submit" value="CONFIGURE" name="reg_btn">
+
     </form>
   </div>
 

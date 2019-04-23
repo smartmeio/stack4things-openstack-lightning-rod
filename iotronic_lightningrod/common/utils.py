@@ -127,7 +127,7 @@ def get_version(package):
 
 def get_socket_info(wport):
 
-    lr_mac = "N/A"
+    sock_bundle = "N/A"
 
     try:
         for socks in psutil.Process().connections():
@@ -146,14 +146,19 @@ def get_socket_info(wport):
                                     for snicaddr in dct[iface]:
                                         if snicaddr.family == 17:
                                             lr_mac = snicaddr.address
-                                            return [iface, ip_addr, lr_mac]
+                                        else:
+                                            lr_mac = "N/A"
+
+                                        sock_bundle = [iface, ip_addr, lr_mac]
+
+                                        return sock_bundle
 
     except Exception as e:
         LOG.warning("Error getting socket info " + str(e))
-        lr_mac = "N/A"
-        return lr_mac
+        sock_bundle = "N/A"
+        return sock_bundle
 
-    return lr_mac
+    return sock_bundle
 
 
 def backupConf():

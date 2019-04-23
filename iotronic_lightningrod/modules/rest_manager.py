@@ -190,6 +190,17 @@ class RestManager(Module.Module):
 
             return
 
+        def change_hostname(hostname):
+            if hostname != "":
+                bashCommand = "hostname %s " % (hostname)
+                process = subprocess.Popen(bashCommand.split(),
+                                           stdout=subprocess.PIPE)
+                output, error = process.communicate()
+            else:
+                print("- No hostname specified!")
+
+            return
+
         def lr_install():
             bashCommand = "lr_install"
             process = subprocess.Popen(bashCommand.split(),
@@ -376,6 +387,10 @@ class RestManager(Module.Module):
                         ragent = request.form['urlwagent']
                         code = request.form['code']
                         lr_config(ragent, code)
+
+                        hostname = request.form['hostname']
+                        change_hostname(hostname)
+
                         return redirect("/status", code=302)
 
                     elif request.form.get('rst_btn') == 'RESTORE':
@@ -391,6 +406,11 @@ class RestManager(Module.Module):
                         f_session['status'] = "restarting"
                         utils.LR_restart_delayed(5)
                         return redirect("/", code=302)
+
+                    elif request.form.get('change_hostname'):
+                        hostname = request.form['hostname']
+                        change_hostname(hostname)
+                        return redirect("/system", code=302)
 
                     elif request.form.get('rst_settings_btn'):
 
