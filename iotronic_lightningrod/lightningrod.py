@@ -439,7 +439,7 @@ def wampConnect(wamp_conf):
             sock_bundle = get_socket_info(wport)
 
             if sock_bundle == "N/A":
-                lr_cty = sock_bundle
+                lr_cty = {}
             else:
                 lr_cty['iface'] = sock_bundle[0]
                 lr_cty['local_ip'] = sock_bundle[1]
