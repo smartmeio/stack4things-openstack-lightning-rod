@@ -39,8 +39,22 @@
         <form method="get" action="/config">
 
             <tr>
-              <td style="width:30%"> <input class="btn btn-primary btn-block" type="submit" value="LR restart" name="lr_restart_btn"> </td>
-              <td> Restart Lightning-rod. </td>
+                <td style="width:30%"> <label for="hostname">Restart Lightning-rod.</label> </td>
+                <td style="width:30%"> </td>
+                <td style="width:30%"> <input class="btn btn-primary btn-block" type="submit" value="Restart" name="lr_restart_btn"> </td>
+
+            </tr>
+
+        </form>
+
+
+        <form method="post" action="/config">
+
+            <tr>
+                <td style="width:30%"> <label for="hostname">Change device hostname:</label> </td>
+                <td style="width:30%"> <input class="form-control" name="hostname" id="hostname"  value="{{ hostname }}" required> </td>
+                <td style="width:30%"> <input class="btn btn-primary btn-block" type="submit" value="Change" name="change_hostname"> </td>
+
             </tr>
 
         </form>

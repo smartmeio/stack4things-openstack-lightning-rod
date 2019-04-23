@@ -108,6 +108,10 @@ class ServiceManager(Module.Module):
         for _ in range(get_zombies()):
             try:
                 os.waitpid(-1, os.WNOHANG)
+                LOG.debug(
+                    " - [finalize] WSTUN zombie " +
+                    "process cleaned."
+                )
             except Exception as exc:
                 print(" - [finalize] Error cleaning" +
                       " wstun zombie process: " + str(exc))
@@ -210,14 +214,19 @@ class ServiceManager(Module.Module):
                                     try:
 
                                         os.kill(service_pid, signal.SIGINT)
+                                        LOG.debug(
+                                            " - [finalize] WSTUN process " +
+                                            "[" + str(wstun.pid) + "] killed")
                                         print("OLD WSTUN KILLED: " + str(wp))
 
                                         try:
                                             os.waitpid(-1, os.WNOHANG)
-                                            print(" - OLD wstun zombie "
-                                                  "process cleaned.")
+                                            LOG.warning(
+                                                " - OLD wstun zombie " +
+                                                "process cleaned."
+                                            )
                                         except Exception as exc:
-                                            print(
+                                            LOG.warning(
                                                 " - [finalize] " +
                                                 "Error cleaning old " +
                                                 "wstun zombie process: " +
@@ -235,7 +244,7 @@ class ServiceManager(Module.Module):
                                             " - WSTUN process already killed, "
                                             "creating new one...")
 
-                                    break
+                                    # break
 
                         # 2. Create the reverse tunnel
                         public_port = \
@@ -317,9 +326,28 @@ class ServiceManager(Module.Module):
                                 LOG.warning("WSTUN ALIVE: " + str(p))
                                 wstun_process_list.append(p)
 
-                                psutil.Process(p.pid).kill()
-                                LOG.warning(" --> PID " + str(p.pid)
-                                            + " killed!")
+                                try:
+                                    psutil.Process(p.pid).kill()
+                                    LOG.warning(" --> PID " + str(p.pid)
+                                                + " killed!")
+                                    try:
+                                        os.waitpid(-1, os.WNOHANG)
+                                        LOG.debug(
+                                            " - [restore] WSTUN zombie " +
+                                            "process cleaned."
+                                        )
+                                    except Exception as exc:
+                                        LOG.warning(
+                                            " - [restore] " +
+                                            "Error cleaning old " +
+                                            "wstun zombie process: " +
+                                            str(exc)
+                                        )
+                                except OSError as err:
+                                    LOG.warning(
+                                        " - [restore] WSTUN killing problem: "
+                                        + str(err)
+                                    )
                 except Exception as e:
                     LOG.error(
                         " --> PSUTIL [restore]: " +
@@ -400,7 +428,7 @@ class ServiceManager(Module.Module):
 
                         message = "WSTUN zombie process ALERT!"
                         print(" - " + str(message))
-                        LOG.debug("[WSTUN-RESTORE] --> " + str(message))
+                        LOG.debug(" - [WSTUN-RESTORE] - " + str(message))
 
                         wstun_found = True
 
@@ -418,6 +446,10 @@ class ServiceManager(Module.Module):
                             # Clean Zombie wstun process
                             try:
                                 os.waitpid(-1, os.WNOHANG)
+                                LOG.debug(
+                                    " - [_zombie_hunter] WSTUN zombie " +
+                                    "process cleaned."
+                                )
                                 print(" - WSTUN zombie process cleaned.")
                             except Exception as exc:
                                 print(" - [hunter] Error cleaning wstun " +
@@ -464,7 +496,7 @@ class ServiceManager(Module.Module):
                         except Exception:
                             pass
 
-                        break
+                        # break
 
                 if not wstun_found:
                     message = "Tunnel killed by LR"
@@ -479,9 +511,13 @@ class ServiceManager(Module.Module):
             # Clean zombie processes (no wstun)
             try:
                 os.waitpid(-1, os.WNOHANG)
+                LOG.debug(
+                    "[_zombie_hunter] Generic zombie " +
+                    "process cleaned."
+                )
                 print(" - Generic zombie process cleaned.")
             except Exception as exc:
-                print(" - [hunter] Error cleaning "
+                print(" - [_zombie_hunter] Error cleaning "
                       "generic zombie process: " + str(exc))
 
             # LOG.debug("[WSTUN-RESTORE] --> " + str(message))
@@ -613,7 +649,14 @@ class ServiceManager(Module.Module):
                         )
                     )
 
-                    os.kill(wstun.pid, signal.SIGKILL)
+                    try:
+                        os.kill(wstun.pid, signal.SIGKILL)
+                        LOG.debug(
+                            " - [_wstunMon] WSTUN process " +
+                            "[" + str(wstun.pid) + "] killed")
+                    except OSError as err:
+                        LOG.warning(" - [_wstunMon] WSTUN killing error: "
+                                    + str(err))
 
             _method_name.__name__ = "process_{}".format(method)
             setattr(cls, _method_name.__name__, _method_name)
@@ -951,6 +994,22 @@ class ServiceManager(Module.Module):
                         lightningrod.zombie_alert = False
 
                         os.kill(service_pid, signal.SIGKILL)
+                        LOG.info(" - [ServiceDisable] WSTUN process " +
+                                 "[" + str(service_pid) + "] killed")
+
+                        try:
+                            os.waitpid(-1, os.WNOHANG)
+                            LOG.debug(
+                                " - [ServiceDisable] WSTUN zombie " +
+                                "process cleaned."
+                            )
+                        except Exception as exc:
+                            print(
+                                " - [ServiceDisable] " +
+                                "Error cleaning old " +
+                                "wstun zombie process: " +
+                                str(exc)
+                            )
 
                         message = "Cloud service '" \
                                   + str(service_name) + "' tunnel disabled."
@@ -1054,6 +1113,21 @@ class ServiceManager(Module.Module):
                         LOG.info(" - service '" + service_name
                                  + "' with PID " + str(service_pid)
                                  + " was killed.")
+
+                        try:
+                            os.waitpid(-1, os.WNOHANG)
+                            LOG.debug(
+                                " - [ServiceRestore] WSTUN zombie " +
+                                "process cleaned."
+                            )
+                        except Exception as exc:
+                            print(
+                                " - [ServiceRestore] " +
+                                "Error cleaning old " +
+                                "wstun zombie process: " +
+                                str(exc)
+                            )
+
                     except OSError:
                         LOG.warning(" - WSTUN process already killed: "
                                     "creating new one...")
