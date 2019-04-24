@@ -426,20 +426,21 @@ class ServiceManager(Module.Module):
 
                     if service_pid in zombie_list:
 
-                        message = "WSTUN zombie process ALERT!"
-                        print(" - " + str(message))
-                        LOG.debug(" - [WSTUN-RESTORE] - " + str(message))
-
-                        wstun_found = True
-
-                        print(s_conf['services'][s_uuid])
-
                         service_public_port = \
                             s_conf['services'][s_uuid]['public_port']
                         service_local_port = \
                             s_conf['services'][s_uuid]['local_port']
                         service_name = \
                             s_conf['services'][s_uuid]['name']
+
+                        message = "WSTUN zombie process ALERT for tunnel '" \
+                                  + service_name + "'"
+                        print(" - " + str(message))
+                        LOG.debug(" - [WSTUN-RESTORE] - " + str(message))
+
+                        wstun_found = True
+
+                        print(s_conf['services'][s_uuid])
 
                         try:
 
@@ -479,9 +480,9 @@ class ServiceManager(Module.Module):
                                     output=True
                                 )
 
-                                message = "Zombie service " \
+                                message = "Zombie service '" \
                                           + str(service_name) \
-                                          + " restored on port " \
+                                          + "' restored on port " \
                                           + str(service_public_port) \
                                           + " on " + self.wstun_ip
 
@@ -637,7 +638,10 @@ class ServiceManager(Module.Module):
         def process_generator(cls, method):
             def _method_name(self, event):
                 if(event.maskname == "IN_CLOSE_WRITE"):
-                    LOG.info("WSTUN fd socket closed: " + str(event.pathname))
+                    LOG.info(
+                        "WSTUN fd socket closed [port(" + str(local_port)
+                        + ")]: " + str(event.pathname)
+                    )
                     LOG.debug(
                         " - FD change notify:"
                         + "\nmethod: process_{}()\n"
@@ -653,10 +657,13 @@ class ServiceManager(Module.Module):
                         os.kill(wstun.pid, signal.SIGKILL)
                         LOG.debug(
                             " - [_wstunMon] WSTUN process " +
-                            "[" + str(wstun.pid) + "] killed")
+                            "[ port(" + str(local_port) + ") | " +
+                            "pid(" + str(wstun.pid) + ") ] killed")
                     except OSError as err:
-                        LOG.warning(" - [_wstunMon] WSTUN killing error: "
-                                    + str(err))
+                        LOG.warning(
+                            " - [_wstunMon] WSTUN killing error ["
+                            + str(local_port) + "]: " + str(err)
+                        )
 
             _method_name.__name__ = "process_{}".format(method)
             setattr(cls, _method_name.__name__, _method_name)
