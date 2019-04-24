@@ -1,7 +1,7 @@
-IoTronic Lightning-rod installation guide for Ubuntu 16.04
-==========================================================
+IoTronic Lightning-rod installation guide for Ubuntu 16.04 and 18.04
+====================================================================
 
-We tested this procedure on a Ubuntu 16.04 (also within a LXD
+We tested this procedure on a Ubuntu 16.04/18.04 (also within a LXD
 container). Everything needs to be run as root.
 
 Requirements
@@ -40,12 +40,14 @@ Requirements
     sed -i "s|80 default_server;|50000 default_server;|g" /etc/nginx/sites-available/default
 
 
-* Certbot
+* Certbot:
 
 ::
+
+    apt install software-properties-common
     add-apt-repository ppa:certbot/certbot
     apt update
-    apt-get install python-certbot-nginx
+    apt install python-certbot-nginx
     systemctl restart nginx
 
 

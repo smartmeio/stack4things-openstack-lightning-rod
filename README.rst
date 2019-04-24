@@ -16,7 +16,7 @@ Installation guides
 
 * `Raspberry Pi 3 <doc/installation/raspberry_pi_3.rst>`_.
 
-* `Ubuntu 16.04 <doc/installation/ubuntu1604.rst>`_.
+* `Ubuntu 16.04 and 18.04 <doc/installation/ubuntu1604.rst>`_.
 
 * Docker:
 

@@ -38,7 +38,7 @@ Requirements
     sed -i "s|listen 80 default_server;|listen 50000 default_server;|g" /etc/nginx/sites-available/default
     sed -i "s|80 default_server;|50000 default_server;|g" /etc/nginx/sites-available/default
 
-* Certbot
+* Certbot:
 
 ::
 
