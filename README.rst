@@ -20,5 +20,5 @@ Installation guides
 
 * Docker:
 
-  * `Raspberry Pi <https://hub.docker.com/r/mdslab/rpi-openstack-iotronic-lightning-rod/>`_.
-  * `Debian/Ubuntu <https://hub.docker.com/r/mdslab/openstack-iotronic-lightning-rod/>`_.
+  * `Raspberry Pi <https://cloud.docker.com/u/smartmeio/repository/docker/smartmeio/arm-openstack-iotronic-lightning-rod>`_.
+  * `Debian/Ubuntu <https://cloud.docker.com/u/smartmeio/repository/docker/smartmeio/openstack-iotronic-lightning-rod>`_.
