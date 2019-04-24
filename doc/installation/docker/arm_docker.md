@@ -1,7 +1,7 @@
 ## Installation on arm architecture
 
 GitHub repo:
-- https://github.com/openstack/iotronic-lightning-rod
+- https://opendev.org/x/iotronic-lightning-rod
 
 # Create container:
 ```

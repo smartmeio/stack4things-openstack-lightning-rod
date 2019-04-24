@@ -1,7 +1,7 @@
 # Installation on Ubuntu/Debian x86_64
 
 GitHub repo:
-- https://github.com/openstack/iotronic-lightning-rod
+- https://opendev.org/x/iotronic-lightning-rod
 
 # Create container:
 ```
