@@ -71,6 +71,9 @@ ws_server_alive = 0
 global WS_MON_LIST
 WS_MON_LIST = {}
 
+global WS_LIST
+WS_LIST = {}
+
 global wstun_ip
 wstun_ip = None
 global wstun_port
@@ -125,6 +128,9 @@ class ServiceManager(Module.Module):
         # Load services.json configuration file
         s_conf = self._loadServicesConf()
 
+        global WS_LIST
+        WS_LIST = s_conf
+
         if s_conf == None:
 
             LOG.error(" --> Error loading services.json file: " +
@@ -168,12 +174,14 @@ class ServiceManager(Module.Module):
                     wstun_process_list = []
 
                     try:
+
                         for p in psutil.process_iter():
                             if len(p.cmdline()) != 0:
                                 if ((p.name() == "node") and (
                                     "wstun" in p.cmdline()[1]
                                 )):
                                     wstun_process_list.append(p)
+
                     except Exception as e:
                         LOG.error(
                             " --> PSUTIL [finalize]: " +
@@ -244,7 +252,7 @@ class ServiceManager(Module.Module):
                                             " - WSTUN process already killed, "
                                             "creating new one...")
 
-                                    # break
+                                    break
 
                         # 2. Create the reverse tunnel
                         public_port = \
@@ -253,7 +261,7 @@ class ServiceManager(Module.Module):
                             s_conf['services'][s_uuid]['local_port']
 
                         wstun = self._startWstunOnBoot(
-                            public_port, local_port, event="boot")
+                            public_port, local_port, s_uuid, event="boot")
 
                         if wstun != None:
 
@@ -297,6 +305,9 @@ class ServiceManager(Module.Module):
         # Load services.json configuration file
         s_conf = self._loadServicesConf()
 
+        global WS_LIST
+        WS_LIST = s_conf
+
         if s_conf == None:
 
             LOG.error(" --> Error loading services.json file: "
@@ -318,10 +329,13 @@ class ServiceManager(Module.Module):
                 # Collect all alive WSTUN proccesses
                 try:
                     for p in psutil.process_iter():
+
                         if (p.name() == "node"):
+
                             if (p.status() == psutil.STATUS_ZOMBIE):
                                 LOG.warning("WSTUN ZOMBIE: " + str(p))
                                 wstun_process_list.append(p)
+
                             elif ("wstun" in p.cmdline()[1]):
                                 LOG.warning("WSTUN ALIVE: " + str(p))
                                 wstun_process_list.append(p)
@@ -374,6 +388,11 @@ class ServiceManager(Module.Module):
 
     def _zombie_hunter(self, signum, frame):
 
+        # print("_zombie_hunter _zombie_hunter _zombie_hunter " +
+        #      "_zombie_hunter _zombie_hunter _zombie_hunter")
+
+        time.sleep(1)
+
         wstun_found = False
 
         if (lightningrod.zombie_alert):
@@ -422,7 +441,8 @@ class ServiceManager(Module.Module):
                     # another instance of wstun
                     s_conf = self._loadServicesConf()
 
-                    service_pid = s_conf['services'][s_uuid]['pid']
+                    # service_pid = s_conf['services'][s_uuid]['pid']
+                    service_pid = WS_LIST['services'][s_uuid]['pid']
 
                     if service_pid in zombie_list:
 
@@ -459,6 +479,7 @@ class ServiceManager(Module.Module):
                             wstun = self._startWstun(
                                 service_public_port,
                                 service_local_port,
+                                s_uuid,
                                 event="zombie"
                             )
 
@@ -497,7 +518,7 @@ class ServiceManager(Module.Module):
                         except Exception:
                             pass
 
-                        # break
+                        break
 
                 if not wstun_found:
                     message = "Tunnel killed by LR"
@@ -525,8 +546,9 @@ class ServiceManager(Module.Module):
             # lightningrod.zombie_alert = True
 
     def _restoreWSTUN(self, s_conf, s_uuid):
+
         service_name = s_conf['services'][s_uuid]['name']
-        service_pid = s_conf['services'][s_uuid]['pid']
+        # service_pid = s_conf['services'][s_uuid]['pid']
         LOG.info(" - " + service_name)
 
         # Create the reverse tunnel again
@@ -535,9 +557,15 @@ class ServiceManager(Module.Module):
         local_port = \
             s_conf['services'][s_uuid]['local_port']
 
-        wstun = self._startWstun(public_port, local_port, event="restore")
+        wstun = self._startWstun(
+            public_port,
+            local_port,
+            s_uuid,
+            event="restore"
+        )
 
         if wstun != None:
+
             service_pid = wstun.pid
 
             # 3. Update services.json file
@@ -643,7 +671,8 @@ class ServiceManager(Module.Module):
                         + ")]: " + str(event.pathname)
                     )
                     LOG.debug(
-                        " - FD change notify:"
+                        " - FD change notify for tunnel port "
+                        + str(local_port) + ":"
                         + "\nmethod: process_{}()\n"
                         + "file_path: {}\n"
                         + "event: {}\n".format(
@@ -684,7 +713,7 @@ class ServiceManager(Module.Module):
         watch_manager.add_watch(watch_this, pyinotify.ALL_EVENTS)
         event_notifier.start()
 
-    def _startWstun(self, public_port, local_port, event="no-set"):
+    def _startWstun(self, public_port, local_port, s_uuid, event="no-set"):
 
         count_ws = 0
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -750,6 +779,10 @@ class ServiceManager(Module.Module):
                 # WSTUN MON
                 # #############################################################
 
+                global WS_LIST
+                WS_LIST['services'][s_uuid]['pid'] = wstun.pid
+                print("------> WS_LIST: " + str(WS_LIST))
+
                 try:
                     if event != "enable":
                         WS_MON_LIST[str(local_port)].stop()
@@ -779,7 +812,8 @@ class ServiceManager(Module.Module):
 
         return wstun
 
-    def _startWstunOnBoot(self, public_port, local_port, event="no-set"):
+    def _startWstunOnBoot(self, public_port, local_port, s_uuid,
+                          event="no-set"):
 
         opt_reverse = "-r" + str(public_port) + ":127.0.0.1:" + str(
             local_port)
@@ -820,6 +854,10 @@ class ServiceManager(Module.Module):
 
             # WSTUN MON
             # #############################################################
+
+            global WS_LIST
+            WS_LIST['services'][s_uuid]['pid'] = wstun.pid
+            print("------> WS_LIST: " + str(WS_LIST))
 
             wsmon = Thread(
                 target=self._wstunMon,
@@ -896,7 +934,12 @@ class ServiceManager(Module.Module):
 
         try:
 
-            wstun = self._startWstun(public_port, local_port, event="enable")
+            wstun = self._startWstun(
+                public_port,
+                local_port,
+                s_uuid,
+                event="enable"
+            )
 
             if wstun != None:
 
@@ -1143,6 +1186,7 @@ class ServiceManager(Module.Module):
                     wstun = self._startWstun(
                         public_port,
                         local_port,
+                        s_uuid,
                         event="kill-restore"
                     )
 
@@ -1193,6 +1237,7 @@ class ServiceManager(Module.Module):
                 wstun = self._startWstun(
                     public_port,
                     local_port,
+                    s_uuid,
                     event="clean-restore"
                 )
 
