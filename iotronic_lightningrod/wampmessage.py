@@ -20,6 +20,7 @@ import json
 SUCCESS = 'SUCCESS'
 ERROR = 'ERROR'
 WARNING = 'WARNING'
+RUNNING = 'RUNNING'
 
 
 def deserialize(received):
@@ -54,3 +55,8 @@ class WampError(WampMessage):
 class WampWarning(WampMessage):
     def __init__(self, msg=None):
         super(WampWarning, self).__init__(msg, WARNING)
+
+
+class WampRunning(WampMessage):
+    def __init__(self, msg=None):
+        super(WampRunning, self).__init__(msg, RUNNING)

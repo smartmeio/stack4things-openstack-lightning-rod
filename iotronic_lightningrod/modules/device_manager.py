@@ -194,9 +194,22 @@ class DeviceManager(Module.Module):
         LOG.info("RPC " + rpc_name + " CALLED")
         LOG.info("--> Parameters: " + str(parameters))
 
-        command = "pip3 install --upgrade iotronic-lightningrod"
+        try:
 
-        def delayLRupgrading():
+            version = parameters['version']
+
+        except Exception as err:
+            LOG.info("--> version not specified: set 'latest'" + str(err))
+            version = None  # latest
+
+        if (version != None) or (version != "latest"):
+
+            command = "pip3 install iotronic-lightningrod==" + str(version)
+
+        else:
+            command = "pip3 install --upgrade iotronic-lightningrod"
+
+        def LRupgrading():
             out = subprocess.Popen(
                 command,
                 shell=True,
@@ -208,7 +221,66 @@ class DeviceManager(Module.Module):
 
         try:
 
-            threading.Thread(target=delayLRupgrading).start()
+            threading.Thread(target=LRupgrading).start()
+
+        except Exception as err:
+            LOG.error("Error in parameters: " + str(err))
+
+        w_msg = WM.WampRunning("LR upgrading...")
+
+        return w_msg.serialize()
+
+    async def DevicePackageAction(self, parameters=None):
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("--> Parameters: " + str(parameters))
+
+        try:
+
+            mng = parameters['manager']  # apt | apt-get | pip | pip3 | npm
+            opt = parameters['options']  # -f| --upgrade | etc
+            cmd = parameters['command']  # install | update | remove
+            pkg = parameters['package']
+            version = parameters['version']
+
+            command = str(mng)
+
+            if opt == None:
+                command = command + " " + str(cmd) + " " + str(pkg)
+            else:
+                command = command + " " + str(opt) + " " + str(cmd) \
+                    + " " + str(pkg)
+
+            if version != None:
+
+                if (mng == "pip") or (mng == "pip3"):
+                    command = command + "==" + str(version)
+
+                elif (mng == "apt") or (mng == "apt-get"):
+                    command = command + "=" + str(version)
+
+                elif mng == "npm":
+                    command = command + "@" + str(version)
+
+            else:
+                command = command + " " + str(pkg)
+
+        except Exception as err:
+            LOG.warning(err)
+
+        def actionOnPackage():
+            out = subprocess.Popen(
+                command,
+                shell=True,
+                stdout=subprocess.PIPE
+            )
+
+            output = out.communicate()[0].decode('utf-8').strip()
+            LOG.info(str(output))
+
+        try:
+
+            threading.Thread(target=actionOnPackage).start()
 
         except Exception as err:
             LOG.error("Error in parameters: " + str(err))
@@ -223,14 +295,15 @@ class DeviceManager(Module.Module):
         LOG.info("--> Parameters: " + str(parameters))
 
         try:
+
             message = str(parameters['say']) + " @ " + \
                 str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
             LOG.info("--> Echo: " + str(message))
 
         except Exception as err:
             LOG.warning("Error in parameters: " + str(err))
-            LOG.info("--> Echo (no-params): " + str(message))
             message = str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
+            LOG.info("--> Echo (no-params): " + str(message))
 
         w_msg = WM.WampSuccess(message)
 
