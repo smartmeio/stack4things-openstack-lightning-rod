@@ -141,17 +141,15 @@ def get_socket_info(wport):
                             iface = key
                             for elem in dct[key]:
                                 ip_addr = elem.address
-                                if ip_addr == str(
-                                        lr_net_iface.laddr.ip):
+                                if ip_addr == str(lr_net_iface.laddr.ip):
                                     for snicaddr in dct[iface]:
                                         if snicaddr.family == 17:
                                             lr_mac = snicaddr.address
-                                        else:
-                                            lr_mac = "N/A"
+                                            sock_bundle = [iface, ip_addr,
+                                                           lr_mac]
+                                            return sock_bundle
 
-                                        sock_bundle = [iface, ip_addr, lr_mac]
-
-                                        return sock_bundle
+        return sock_bundle
 
     except Exception as e:
         LOG.warning("Error getting socket info " + str(e))

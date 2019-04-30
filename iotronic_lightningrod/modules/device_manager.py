@@ -97,69 +97,146 @@ class DeviceManager(Module.Module):
 
                 LOG.info("   --> " + str(meth[0]) + " registered!")
 
-    async def DevicePing(self):
-        rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
-
-        message = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')
-        w_msg = WM.WampSuccess(message)
-
-        return w_msg.serialize()
-
-    async def DeviceReboot(self):
-        rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
-
-        def delayBoardReboot():
-            time.sleep(3)
-            subprocess.call("reboot", shell=True)
-
-        threading.Thread(target=delayBoardReboot).start()
-
-        message = "Rebooting board in few seconds @" + \
-                  str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
-        w_msg = WM.WampSuccess(message)
-
-        return w_msg.serialize()
-
-    async def DeviceRestartLR(self):
-        rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
-
-        def delayLRrestarting():
-            time.sleep(2)
-            python = sys.executable
-            os.execl(python, python, *sys.argv)
-
-        threading.Thread(target=delayLRrestarting).start()
-
-        message = "Restarting LR in 5 seconds (" + \
-                  datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f') + ")..."
-        w_msg = WM.WampSuccess(message)
-
-        return w_msg.serialize()
-
-    async def DeviceHostname(self):
+    async def DevicePing(self, parameters=None):
         rpc_name = utils.getFuncName()
         LOG.info("RPC " + rpc_name + " CALLED")
 
         command = "hostname"
 
-        out = subprocess.Popen(
-            command,
-            shell=True,
-            stdout=subprocess.PIPE
-        )
+        try:
+            out = subprocess.Popen(
+                command,
+                shell=True,
+                stdout=subprocess.PIPE
+            )
 
-        output = out.communicate()[0].decode('utf-8').strip()
+            output = out.communicate()[0].decode('utf-8').strip()
 
-        message = str(output) + "@" + \
+        except Exception as err:
+            LOG.error("Error in parameters: " + str(err))
+            output = "N/A"
+
+        message = str(output) + " @ " + \
             str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
         w_msg = WM.WampSuccess(message)
 
         return w_msg.serialize()
 
-    async def DeviceNetConfig(self):
+    async def DeviceReboot(self, parameters=None):
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED")
+
+        delay = 3  # default delay
+
+        try:
+
+            if parameters['delay'] > 3:
+                delay = parameters['delay']
+
+        except Exception as err:
+            LOG.error("Error in 'delay' parameter: " + str(err))
+            LOG.warning("--> default 'delay' parameter set: " + str(delay))
+
+        LOG.info("--> delay: " + str(delay))
+
+        def delayBoardReboot():
+            time.sleep(delay)
+            subprocess.call("reboot", shell=True)
+
+        threading.Thread(target=delayBoardReboot).start()
+
+        if parameters == None:
+            message = "Rebooting board in few seconds @" + \
+                      str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
+        else:
+            message = "Rebooting board in " + str(delay) + " seconds (" \
+                      + datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f') \
+                      + ")..."
+
+        w_msg = WM.WampSuccess(message)
+
+        return w_msg.serialize()
+
+    async def DeviceRestartLR(self, parameters=None):
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED")
+
+        delay = 3  # default delay
+
+        try:
+
+            if parameters['delay'] > 3:
+                delay = parameters['delay']
+
+        except Exception as err:
+            LOG.error("Error in 'delay' parameter: " + str(err))
+            LOG.warning("--> default 'delay' parameter set: " + str(delay))
+
+        LOG.info("--> delay: " + str(delay))
+
+        def delayLRrestarting():
+            time.sleep(delay)
+            python = sys.executable
+            os.execl(python, python, *sys.argv)
+
+        threading.Thread(target=delayLRrestarting).start()
+
+        message = "Restarting LR in " + str(delay) \
+                  + " seconds (" \
+                  + datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f') + ")..."
+
+        w_msg = WM.WampSuccess(message)
+
+        return w_msg.serialize()
+
+    async def DeviceUpgradeLR(self, parameters=None):
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("--> Parameters: " + str(parameters))
+
+        command = "pip3 install --upgrade iotronic-lightningrod"
+
+        def delayLRupgrading():
+            out = subprocess.Popen(
+                command,
+                shell=True,
+                stdout=subprocess.PIPE
+            )
+
+            output = out.communicate()[0].decode('utf-8').strip()
+            LOG.info(str(output))
+
+        try:
+
+            threading.Thread(target=delayLRupgrading).start()
+
+        except Exception as err:
+            LOG.error("Error in parameters: " + str(err))
+
+        w_msg = WM.WampSuccess("LR upgrading...")
+
+        return w_msg.serialize()
+
+    async def DeviceEcho(self, parameters=None):
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("--> Parameters: " + str(parameters))
+
+        try:
+            message = str(parameters['say']) + " @ " + \
+                str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
+            LOG.info("--> Echo: " + str(message))
+
+        except Exception as err:
+            LOG.warning("Error in parameters: " + str(err))
+            LOG.info("--> Echo (no-params): " + str(message))
+            message = str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
+
+        w_msg = WM.WampSuccess(message)
+
+        return w_msg.serialize()
+
+    async def DeviceNetConfig(self, parameters=None):
         rpc_name = utils.getFuncName()
         LOG.info("RPC " + rpc_name + " CALLED")
 
@@ -171,14 +248,20 @@ class DeviceManager(Module.Module):
 
 def getIfconfig():
 
-    command = "ifconfig"
+    try:
 
-    out = subprocess.Popen(
-        command,
-        shell=True,
-        stdout=subprocess.PIPE
-    )
+        command = "ifconfig"
 
-    output = str(out.communicate()[0].decode('utf-8').strip())
+        out = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=subprocess.PIPE
+        )
+
+        output = str(out.communicate()[0].decode('utf-8').strip())
+
+    except Exception as err:
+        LOG.error("Error in 'ifconfig' command: " + str(err))
+        output = "N/A"
 
     return output
