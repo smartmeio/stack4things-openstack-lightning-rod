@@ -20,7 +20,6 @@ import json
 import os
 import psutil
 import pyinotify
-import queue
 import signal
 import socket
 import subprocess
@@ -29,17 +28,18 @@ import time
 import threading
 
 from datetime import datetime
+from random import randint
 from threading import Thread
 from urllib.parse import urlparse
 
+from iotronic_lightningrod.common import utils
 from iotronic_lightningrod.config import package_path
 from iotronic_lightningrod.modules import Module
-from iotronic_lightningrod.modules import utils
+
+from iotronic_lightningrod import lightningrod
 
 import iotronic_lightningrod.wampmessage as WM
 
-from iotronic_lightningrod import lightningrod
-from random import randint
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -223,8 +223,9 @@ class ServiceManager(Module.Module):
 
                                         os.kill(service_pid, signal.SIGINT)
                                         LOG.debug(
-                                            " - [finalize] WSTUN process " +
-                                            "[" + str(wstun.pid) + "] killed")
+                                            " - [finalize] WSTUN process ["
+                                            + str(service_pid) + "] killed"
+                                        )
                                         print("OLD WSTUN KILLED: " + str(wp))
 
                                         try:
@@ -518,7 +519,7 @@ class ServiceManager(Module.Module):
                         except Exception:
                             pass
 
-                        break
+                        # break
 
                 if not wstun_found:
                     message = "Tunnel killed by LR"
@@ -786,6 +787,7 @@ class ServiceManager(Module.Module):
                 try:
                     if event != "enable":
                         WS_MON_LIST[str(local_port)].stop()
+
                 except Exception as err:
                     LOG.error("Error stopping WSTUN monitor: " + str(err))
 

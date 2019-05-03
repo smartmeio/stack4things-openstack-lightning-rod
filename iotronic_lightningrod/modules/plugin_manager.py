@@ -25,9 +25,9 @@ import shutil
 import time
 
 
+from iotronic_lightningrod.common import utils
 from iotronic_lightningrod.modules import Module
 from iotronic_lightningrod.modules.plugins import PluginSerializer
-from iotronic_lightningrod.modules import utils
 import iotronic_lightningrod.wampmessage as WM
 
 

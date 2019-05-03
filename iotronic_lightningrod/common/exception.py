@@ -20,7 +20,7 @@ import signal
 from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
-from iotronic_lightningrod.common import utils
+from iotronic_lightningrod.modules import utils as lr_utils
 
 
 def manageTimeout(error_message, action):
@@ -35,7 +35,7 @@ def manageTimeout(error_message, action):
             LOG.warning("Iotronic RPC-ALIVE timeout details: " + str(details))
             try:
 
-                utils.destroyWampSocket()
+                lr_utils.destroyWampSocket()
 
             except Exception as e:
                 LOG.warning("Iotronic RPC-ALIVE timeout error: " + str(e))
@@ -43,7 +43,7 @@ def manageTimeout(error_message, action):
         else:
             LOG.warning("Board connection call timeout ["
                         + str(action) + "]: " + str(details))
-            utils.LR_restart()
+            lr_utils.LR_restart()
 
 
 class NginxError(Exception):

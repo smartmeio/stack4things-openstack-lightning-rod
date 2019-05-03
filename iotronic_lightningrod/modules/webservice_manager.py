@@ -15,10 +15,10 @@
 
 __author__ = "Nicola Peditto <n.peditto@gmail.com>"
 
+from iotronic_lightningrod.common import utils
 from iotronic_lightningrod.config import package_path
 from iotronic_lightningrod.lightningrod import RPC_proxies
 from iotronic_lightningrod.modules import Module
-from iotronic_lightningrod.modules import utils
 import iotronic_lightningrod.wampmessage as WM
 
 

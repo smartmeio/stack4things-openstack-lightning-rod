@@ -16,53 +16,31 @@
 __author__ = "Nicola Peditto <n.peditto@gmail.com>"
 
 import asyncio
-import inspect
 import pkg_resources
 from six import moves
 from stevedore import extension
+
+import os
+import psutil
+import subprocess
 import sys
+import threading
+import time
 
 from iotronic_lightningrod.config import entry_points_name
-from iotronic_lightningrod.lightningrod import SESSION
 from iotronic_lightningrod.modules import Module
-
+from iotronic_lightningrod.modules import utils as lr_utils
 
 from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
-
-
-def getFuncName():
-    return inspect.stack()[1][3]
-
-
-def refresh_stevedore(namespace=None):
-    """Trigger reload of entry points.
-
-    Useful to have dynamic loading/unloading of stevedore modules.
-    """
-    # NOTE(sheeprine): pkg_resources doesn't support reload on python3 due to
-    # defining basestring which is still there on reload hence executing
-    # python2 related code.
-    try:
-        del sys.modules['pkg_resources'].basestring
-    except AttributeError:
-        # python2, do nothing
-        pass
-    # Force working_set reload
-    moves.reload_module(sys.modules['pkg_resources'])
-    # Clear stevedore cache
-    cache = extension.ExtensionManager.ENTRY_POINT_CACHE
-    if namespace:
-        if namespace in cache:
-            del cache[namespace]
-    else:
-        cache.clear()
 
 
 class Utility(Module.Module):
 
     def __init__(self, board, session):
         super(Utility, self).__init__("Utility", board)
+
+        self.session = session
 
     def finalize(self):
         pass
@@ -102,7 +80,7 @@ class Utility(Module.Module):
 
         await named_objects
 
-        SESSION.disconnect()
+        self.session.disconnect()
 
         return str(named_objects)
 
@@ -125,3 +103,145 @@ class Utility(Module.Module):
         LOG.info("DESTROY RESULT: " + str(result))
 
         return result
+
+
+def refresh_stevedore(namespace=None):
+    """Trigger reload of entry points.
+
+    Useful to have dynamic loading/unloading of stevedore modules.
+    """
+    # NOTE(sheeprine): pkg_resources doesn't support reload on python3 due to
+    # defining basestring which is still there on reload hence executing
+    # python2 related code.
+    try:
+        del sys.modules['pkg_resources'].basestring
+    except AttributeError:
+        # python2, do nothing
+        pass
+    # Force working_set reload
+    moves.reload_module(sys.modules['pkg_resources'])
+    # Clear stevedore cache
+    cache = extension.ExtensionManager.ENTRY_POINT_CACHE
+    if namespace:
+        if namespace in cache:
+            del cache[namespace]
+    else:
+        cache.clear()
+
+
+def LR_restart_delayed(seconds):
+
+    try:
+        if seconds < 3:
+            seconds = 3
+
+        LOG.warning("Lightning-rod restarting in "
+                    + str(seconds) + " seconds...")
+
+        def delayLRrestarting():
+            time.sleep(seconds)
+            python = sys.executable
+            os.execl(python, python, *sys.argv)
+
+        threading.Thread(target=delayLRrestarting).start()
+    except Exception as err:
+        LOG.error("Lightning-rod restarting error: " + str(err))
+
+
+def LR_restart():
+    try:
+        LOG.warning("Lightning-rod restarting in few seconds...")
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
+    except Exception as err:
+        LOG.error("Lightning-rod restarting error: " + str(err))
+
+
+def destroyWampSocket():
+
+    LR_PID = os.getpid()
+
+    try:
+
+        process = subprocess.Popen(
+            ["gdb", "-p", str(LR_PID)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE
+        )
+
+        proc = psutil.Process()
+
+        conn_list = proc.connections()
+        proc_msg = "WAMP RECOVERY: " + str(conn_list)
+        print(proc_msg)
+        LOG.info(proc_msg)
+
+        wamp_conn_set = False
+
+        for socks in conn_list:
+            # print(socks.raddr, socks.fd)
+            if socks.raddr != ():
+                # print(socks.raddr.port, socks.fd)
+                if socks.raddr.port == 8181:
+                    socks_msg = "FD selected: " + str(socks.fd) \
+                                + " [port " + str(socks.raddr.port) + "]"
+
+                    print(socks_msg)
+                    LOG.info(socks_msg)
+
+                    ws_fd = socks.fd
+                    first = b"call ((void(*)()) shutdown)("
+                    fd = str(ws_fd).encode('ascii')
+                    last = b"u,0)\nquit\ny"
+                    commands = b"%s%s%s" % (first, fd, last)
+                    process.communicate(input=commands)[0]
+
+                    msg = "Websocket-Zombie closed! Restoring..."
+                    LOG.warning(msg)
+                    print(msg)
+                    # WAMP connection found!
+                    wamp_conn_set = True
+                    # LOG.info("WAMP CONNECTION FOUND")
+
+        if wamp_conn_set == False:
+            LOG.warning("WAMP CONNECTION NOT FOUND: LR restarting...")
+            # In conn_list there is not the WAMP connection!
+            lr_utils.LR_restart()
+
+    except Exception as e:
+        LOG.warning("RPC-ALIVE - destroyWampSocket error: " + str(e))
+        lr_utils.LR_restart()
+
+
+def get_socket_info(wport):
+
+    sock_bundle = "N/A"
+
+    try:
+        for socks in psutil.Process().connections():
+            if len(socks.raddr) != 0:
+                if (socks.raddr.port == wport):
+                    lr_net_iface = socks
+                    print("WAMP SOCKET: " + str(lr_net_iface))
+                    dct = psutil.net_if_addrs()
+                    for key in dct.keys():
+                        if isinstance(dct[key], dict) == False:
+                            iface = key
+                            for elem in dct[key]:
+                                ip_addr = elem.address
+                                if ip_addr == str(lr_net_iface.laddr.ip):
+                                    for snicaddr in dct[iface]:
+                                        if snicaddr.family == 17:
+                                            lr_mac = snicaddr.address
+                                            sock_bundle = [iface, ip_addr,
+                                                           lr_mac]
+                                            return sock_bundle
+
+        return sock_bundle
+
+    except Exception as e:
+        LOG.warning("Error getting socket info " + str(e))
+        sock_bundle = "N/A"
+        return sock_bundle
+
+    return sock_bundle

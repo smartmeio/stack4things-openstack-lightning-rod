@@ -19,16 +19,18 @@ import importlib as imp
 import inspect
 import os
 import subprocess
-import sys
 import threading
 import time
 
+from autobahn.wamp import exception
 from datetime import datetime
 
+from iotronic_lightningrod.common import utils
 from iotronic_lightningrod.config import package_path
 from iotronic_lightningrod.lightningrod import RPC_devices
+from iotronic_lightningrod.lightningrod import wampNotify
 from iotronic_lightningrod.modules import Module
-from iotronic_lightningrod.modules import utils
+from iotronic_lightningrod.modules import utils as lr_utils
 import iotronic_lightningrod.wampmessage as WM
 
 
@@ -97,9 +99,10 @@ class DeviceManager(Module.Module):
 
                 LOG.info("   --> " + str(meth[0]) + " registered!")
 
-    async def DevicePing(self, parameters=None):
+    async def DevicePing(self, req_id, parameters=None):
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        LOG.info("--> Parameters: " + str(parameters))
 
         command = "hostname"
 
@@ -122,9 +125,10 @@ class DeviceManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def DeviceReboot(self, parameters=None):
+    async def DeviceReboot(self, req_id, parameters=None):
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        LOG.info("--> Parameters: " + str(parameters))
 
         delay = 3  # default delay
 
@@ -157,9 +161,10 @@ class DeviceManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def DeviceRestartLR(self, parameters=None):
+    async def DeviceRestartLR(self, req_id, parameters=None):
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        LOG.info("--> Parameters: " + str(parameters))
 
         delay = 3  # default delay
 
@@ -174,12 +179,8 @@ class DeviceManager(Module.Module):
 
         LOG.info("--> delay: " + str(delay))
 
-        def delayLRrestarting():
-            time.sleep(delay)
-            python = sys.executable
-            os.execl(python, python, *sys.argv)
-
-        threading.Thread(target=delayLRrestarting).start()
+        # LR restarting
+        lr_utils.LR_restart_delayed(delay)
 
         message = "Restarting LR in " + str(delay) \
                   + " seconds (" \
@@ -189,9 +190,9 @@ class DeviceManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def DeviceUpgradeLR(self, parameters=None):
+    async def DeviceUpgradeLR(self, req_id, parameters=None):
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
         LOG.info("--> Parameters: " + str(parameters))
 
         try:
@@ -199,17 +200,18 @@ class DeviceManager(Module.Module):
             version = parameters['version']
 
         except Exception as err:
-            LOG.info("--> version not specified: set 'latest'" + str(err))
+            LOG.info("--> version not specified: set 'latest'")
             version = None  # latest
 
-        if (version != None) or (version != "latest"):
+        if (version != None) and (version != "latest"):
 
             command = "pip3 install iotronic-lightningrod==" + str(version)
 
         else:
             command = "pip3 install --upgrade iotronic-lightningrod"
 
-        def LRupgrading():
+        def upgradingLR():
+
             out = subprocess.Popen(
                 command,
                 shell=True,
@@ -217,11 +219,37 @@ class DeviceManager(Module.Module):
             )
 
             output = out.communicate()[0].decode('utf-8').strip()
-            LOG.info(str(output))
+            LOG.info("\n" + str(output))
+
+            try:
+
+                w_msg = WM.WampSuccess(
+                    msg="LR upgraded", req_id=req_id
+                ).serialize()
+
+            except Exception as e:
+                LOG.error(" - Wamp Message error in '"
+                          + rpc_name + "': " + str(e))
+
+            try:
+
+                notify = wampNotify(self.device_session, self.board, w_msg)
+
+                LOG.info(
+                    " - Notify result '" + rpc_name + "': "
+                    + str(notify.result) + " - " + str(notify.message)
+                )
+
+            except exception.ApplicationError as e:
+                LOG.error(" - Notify result '"
+                          + rpc_name + "' error: " + str(e))
+
+            # Restart LR to start new version
+            lr_utils.LR_restart_delayed(2)
 
         try:
 
-            threading.Thread(target=LRupgrading).start()
+            threading.Thread(target=upgradingLR).start()
 
         except Exception as err:
             LOG.error("Error in parameters: " + str(err))
@@ -230,9 +258,9 @@ class DeviceManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def DevicePackageAction(self, parameters=None):
+    async def DevicePackageAction(self, req_id, parameters=None):
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
         LOG.info("--> Parameters: " + str(parameters))
 
         try:
@@ -278,6 +306,29 @@ class DeviceManager(Module.Module):
             output = out.communicate()[0].decode('utf-8').strip()
             LOG.info(str(output))
 
+            try:
+
+                w_msg = WM.WampSuccess(
+                    msg="Package Action completed", req_id=req_id
+                ).serialize()
+
+            except Exception as e:
+                LOG.error(" - Wamp Message error in '"
+                          + rpc_name + "': " + str(e))
+
+            try:
+
+                notify = wampNotify(self.device_session, self.board, w_msg)
+
+                LOG.info(
+                    " - Notify result '" + rpc_name + "': "
+                    + str(notify.result) + " - " + str(notify.message)
+                )
+
+            except exception.ApplicationError as e:
+                LOG.error(" - Notify result '"
+                          + rpc_name + "' error: " + str(e))
+
         try:
 
             threading.Thread(target=actionOnPackage).start()
@@ -289,9 +340,9 @@ class DeviceManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def DeviceEcho(self, parameters=None):
+    async def DeviceEcho(self, req_id, parameters=None):
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
         LOG.info("--> Parameters: " + str(parameters))
 
         try:
@@ -309,9 +360,10 @@ class DeviceManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def DeviceNetConfig(self, parameters=None):
+    async def DeviceNetConfig(self, req_id, parameters=None):
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        LOG.info("--> Parameters: " + str(parameters))
 
         message = getIfconfig()
         w_msg = WM.WampSuccess(message)

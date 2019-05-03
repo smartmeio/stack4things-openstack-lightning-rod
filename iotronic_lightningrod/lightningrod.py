@@ -27,25 +27,21 @@ import asyncio
 import inspect
 import os
 import pkg_resources
-import psutil
 import signal
 import ssl
-from stevedore import extension
 import sys
 import time
 import txaio
 
 from pip._vendor import pkg_resources
+from stevedore import extension
 
 # IoTronic imports
 from iotronic_lightningrod.Board import Board
-from iotronic_lightningrod.Board import FIRST_BOOT
-
 from iotronic_lightningrod.common.exception import timeoutALIVE
 from iotronic_lightningrod.common.exception import timeoutRPC
 from iotronic_lightningrod.common import utils
-from iotronic_lightningrod.common.utils import get_socket_info
-from iotronic_lightningrod.common.utils import get_version
+from iotronic_lightningrod.modules import utils as lr_utils
 import iotronic_lightningrod.wampmessage as WM
 
 
@@ -112,7 +108,7 @@ class LightningRod(object):
         LogoLR()
 
         LOG.info(' - version: ' +
-                 str(get_version("iotronic-lightningrod")))
+                 str(utils.get_version("iotronic-lightningrod")))
         LOG.info(' - PID: ' + str(os.getpid()))
 
         LOG.info("LR available modules: ")
@@ -137,7 +133,7 @@ class LightningRod(object):
 
             LOG.info('Lightning-rod: ')
             LOG.info(' - version: ' +
-                     str(get_version("iotronic-lightningrod")))
+                     str(utils.get_version("iotronic-lightningrod")))
             LOG.info(' - PID: ' + str(os.getpid()))
             LOG.info(' - Logs: ' + CONF.log_file)
             LOG.info(" - Home: " + CONF.lightningrod_home)
@@ -238,6 +234,38 @@ def iotronic_status(board_status):
     return alive
 
 
+def wampNotify(session, board, w_msg):
+
+    rpc = str(board.agent) + u'.stack4things.notify_result'
+
+    async def wampCall(session, board, wm, rpc, action):
+
+        w_msg = None
+
+        try:
+
+            with timeoutRPC(seconds=10, action=action):
+                res = await session.call(
+                    rpc,
+                    board_uuid=board.uuid,
+                    wampmessage=wm
+                )
+
+            w_msg = WM.deserialize(res)
+
+        except exception.ApplicationError as e:
+            LOG.error(" - wampCall RPC error: " + str(e))
+
+        return w_msg
+
+    res = asyncio.run_coroutine_threadsafe(
+        wampCall(session, board, w_msg, rpc, "notify_result"),
+        loop
+    ).result()
+
+    return res
+
+
 async def wamp_singleCheck(session):
     try:
 
@@ -282,7 +310,7 @@ async def wamp_checks(session):
             # The board will disconnect from WAMP agent and retry later.
             global reconnection
             reconnection = True
-            utils.destroyWampSocket()
+            lr_utils.destroyWampSocket()
 
         try:
             await asyncio.sleep(CONF.alive_timer)
@@ -317,7 +345,9 @@ async def IotronicLogin(board, session, details):
                 uuid=board.uuid,
                 session=details.session,
                 info={
-                    "lr_version": str(get_version("iotronic-lightningrod")),
+                    "lr_version": str(
+                        utils.get_version("iotronic-lightningrod")
+                    ),
                     "connectivity": lr_cty
                 }
 
@@ -339,7 +369,7 @@ async def IotronicLogin(board, session, details):
 
                 except Exception as e:
                     LOG.warning("WARNING - Could not load modules: " + str(e))
-                    utils.LR_restart()
+                    lr_utils.LR_restart()
 
                 # Reset flag to False
                 # reconnection = False
@@ -356,7 +386,7 @@ async def IotronicLogin(board, session, details):
 
         # We restart Lightning-rod if RPC 'stack4things.connection' is not
         # available, this means Wagent is unreachable
-        utils.LR_restart()
+        lr_utils.LR_restart()
 
     except Exception as e:
         LOG.warning("Iotronic board connection error: " + str(e))
@@ -436,7 +466,7 @@ def wampConnect(wamp_conf):
 
             global wport
             global lr_cty
-            sock_bundle = get_socket_info(wport)
+            sock_bundle = lr_utils.get_socket_info(wport)
 
             if sock_bundle == "N/A":
                 lr_cty = {}
@@ -540,7 +570,7 @@ def wampConnect(wamp_conf):
                             # We restart Lightning-rod if RPC
                             # 'stack4things.connection' is not available,
                             # this means Wagent is unreachable
-                            utils.LR_restart()
+                            lr_utils.LR_restart()
 
                         else:
                             LOG.error("Registration denied by Iotronic - " +
@@ -561,7 +591,7 @@ def wampConnect(wamp_conf):
                         # We restart Lightning-rod if RPC
                         # 'stack4things.connection' is not available,
                         # this means Wagent is unreachable
-                        utils.LR_restart()
+                        lr_utils.LR_restart()
 
                     except Exception as e:
                         LOG.warning(
@@ -625,7 +655,8 @@ def wampConnect(wamp_conf):
                             session=details.session,
                             info={
                                 "lr_version": str(
-                                    get_version("iotronic-lightningrod")),
+                                    utils.get_version("iotronic-lightningrod")
+                                ),
                                 "connectivity": lr_cty
                             }
 
@@ -679,7 +710,7 @@ def wampConnect(wamp_conf):
 
                     # We restart Lightning-rod if RPC 'stack4things.connection'
                     # is not available, this means Wagent is unreachable
-                    utils.LR_restart()
+                    lr_utils.LR_restart()
 
                 except Exception as e:
                     LOG.warning("Board connection error after WAMP recovery: "
@@ -972,7 +1003,7 @@ def moduleReloadInfo(session):
 
     except Exception as err:
         LOG.warning("Board modules reloading error: " + str(err))
-        utils.LR_restart()
+        lr_utils.LR_restart()
 
 
 def Bye():

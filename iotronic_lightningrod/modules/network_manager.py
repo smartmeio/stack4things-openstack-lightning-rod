@@ -13,7 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import asyncio
+from iotronic_lightningrod.common import utils
 from iotronic_lightningrod.modules import Module
 import iotronic_lightningrod.wampmessage as WM
 from oslo_log import log as logging
@@ -42,7 +42,7 @@ class NetworkManager(Module.Module):
     def restore(self):
         pass
 
-    async def Create_VIF(self, r_tcp_port):
+    async def Create_VIF(self, req_id, r_tcp_port):
 
         LOG.info("Creation of the VIF ")
 
@@ -85,7 +85,7 @@ class NetworkManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def Configure_VIF(self, port, cidr):
+    async def Configure_VIF(self, req_id, port, cidr):
 
         LOG.info("Configuration of the VIF")
 
@@ -119,7 +119,7 @@ class NetworkManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def Remove_VIF(self, VIF_name):
+    async def Remove_VIF(self, req_id, VIF_name):
 
         LOG.info("Removing a VIF from the board")
 

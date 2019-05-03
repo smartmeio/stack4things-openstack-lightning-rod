@@ -18,12 +18,12 @@ __author__ = "Nicola Peditto <n.peditto@gmail.com>"
 
 from iotronic_lightningrod.common.pam import pamAuthentication
 from iotronic_lightningrod.common import utils
-from iotronic_lightningrod.common.utils import get_version
 from iotronic_lightningrod.lightningrod import board
 from iotronic_lightningrod.lightningrod import iotronic_status
 from iotronic_lightningrod.modules import device_manager
 from iotronic_lightningrod.modules import Module
 from iotronic_lightningrod.modules import service_manager
+from iotronic_lightningrod.modules import utils as lr_utils
 
 
 from datetime import datetime
@@ -152,7 +152,9 @@ class RestManager(Module.Module):
                     'board_reg_status': str(board.status),
                     'iotronic_status': str(iotronic_status(board.status)),
                     'service_list': str(service_list),
-                    'lr_version': str(get_version("iotronic-lightningrod"))
+                    'lr_version': str(
+                        utils.get_version("iotronic-lightningrod")
+                    )
                 }
 
                 return render_template('status.html', **info)
@@ -294,7 +296,7 @@ class RestManager(Module.Module):
                                 # restart LR
                                 print("--> LR restarting in 5 seconds...")
                                 f_session['status'] = "restarting"
-                                utils.LR_restart_delayed(5)
+                                lr_utils.LR_restart_delayed(5)
 
                                 return redirect("/", code=302)
 
@@ -368,7 +370,7 @@ class RestManager(Module.Module):
                 # restart LR
                 print("--> LR restarting in 5 seconds...")
                 f_session['status'] = "restarting"
-                utils.LR_restart_delayed(5)
+                lr_utils.LR_restart_delayed(5)
 
                 return redirect("/", code=302)
             else:
@@ -404,7 +406,7 @@ class RestManager(Module.Module):
                         print("Refactored")
                         print("--> LR restarting in 5 seconds...")
                         f_session['status'] = "restarting"
-                        utils.LR_restart_delayed(5)
+                        lr_utils.LR_restart_delayed(5)
                         return redirect("/", code=302)
 
                     elif request.form.get('change_hostname'):
@@ -473,7 +475,7 @@ class RestManager(Module.Module):
                                             print(" - LR restarting "
                                                   + "in 5 seconds...")
                                             f_session['status'] = "restarting"
-                                            utils.LR_restart_delayed(5)
+                                            lr_utils.LR_restart_delayed(5)
 
                                         return redirect("/", code=302)
 
@@ -566,13 +568,13 @@ class RestManager(Module.Module):
                             print("Refactored")
                             print("--> LR restarting in 5 seconds...")
                             f_session['status'] = "restarting"
-                            utils.LR_restart_delayed(5)
+                            lr_utils.LR_restart_delayed(5)
                             return redirect("/", code=302)
 
                         elif request.args.get('lr_restart_btn'):
                             print("LR restarting in 5 seconds...")
                             f_session['status'] = "restarting"
-                            utils.LR_restart_delayed(5)
+                            lr_utils.LR_restart_delayed(5)
                             return redirect("/", code=302)
 
                         else:

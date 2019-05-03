@@ -29,34 +29,30 @@ def deserialize(received):
 
 
 class WampMessage(object):
-    def __init__(self, message=None, result=None):
+    def __init__(self, message, result, req_id):
         self.message = message
         self.result = result
+        self.req_id = req_id
 
     def serialize(self):
         return json.dumps(self, default=lambda o: o.__dict__)
-    """
-    def deserialize(self, received):
-        self.__dict__ = json.loads(received)
-        return self
-    """
 
 
 class WampSuccess(WampMessage):
-    def __init__(self, msg=None):
-        super(WampSuccess, self).__init__(msg, SUCCESS)
+    def __init__(self, msg=None, req_id=None):
+        super(WampSuccess, self).__init__(msg, SUCCESS, req_id)
 
 
 class WampError(WampMessage):
-    def __init__(self, msg=None):
-        super(WampError, self).__init__(msg, ERROR)
+    def __init__(self, msg=None, req_id=None):
+        super(WampError, self).__init__(msg, ERROR, req_id)
 
 
 class WampWarning(WampMessage):
-    def __init__(self, msg=None):
-        super(WampWarning, self).__init__(msg, WARNING)
+    def __init__(self, msg=None, req_id=None):
+        super(WampWarning, self).__init__(msg, WARNING, req_id)
 
 
 class WampRunning(WampMessage):
-    def __init__(self, msg=None):
-        super(WampRunning, self).__init__(msg, RUNNING)
+    def __init__(self, msg=None, req_id=None):
+        super(WampRunning, self).__init__(msg, RUNNING, req_id)

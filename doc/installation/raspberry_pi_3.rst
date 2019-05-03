@@ -10,7 +10,7 @@ Requirements
 
 ::
 
-   apt install python3 python3-setuptools python3-pip gdb lsof libssl-dev libffi-dev libffi-dev
+   apt install python3 python3-setuptools python3-pip gdb lsof libssl-dev libffi-dev
 
 * NodeJS
 
