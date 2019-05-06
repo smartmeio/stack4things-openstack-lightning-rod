@@ -234,7 +234,7 @@ def iotronic_status(board_status):
     return alive
 
 
-def wampNotify(session, board, w_msg):
+def wampNotify(session, board, w_msg, subject):
 
     rpc = str(board.agent) + u'.stack4things.notify_result'
 
@@ -255,6 +255,11 @@ def wampNotify(session, board, w_msg):
 
         except exception.ApplicationError as e:
             LOG.error(" - wampCall RPC error: " + str(e))
+
+        LOG.debug(
+            " - Notify result '" + subject + "': "
+            + str(w_msg.result) + " - " + str(w_msg.message)
+        )
 
         return w_msg
 

@@ -195,57 +195,103 @@ class DeviceManager(Module.Module):
         LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
         LOG.info("--> Parameters: " + str(parameters))
 
-        try:
-
+        if 'version' in parameters:
             version = parameters['version']
-
-        except Exception as err:
-            LOG.info("--> version not specified: set 'latest'")
+            if version == "":
+                version = None
+        else:
             version = None  # latest
 
-        if (version != None) and (version != "latest"):
-
+        if (version != None) and (version != "latest") and (version != ""):
+            LOG.info("--> version specified: " + str(version))
             command = "pip3 install iotronic-lightningrod==" + str(version)
-
         else:
+            LOG.info("--> version not specified: set 'latest'")
             command = "pip3 install --upgrade iotronic-lightningrod"
+
+        print("\nUpgrading LR: " + str(command))
 
         def upgradingLR():
 
             out = subprocess.Popen(
                 command,
                 shell=True,
-                stdout=subprocess.PIPE
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT
             )
 
-            output = out.communicate()[0].decode('utf-8').strip()
-            LOG.info("\n" + str(output))
+            (stdout, stderr) = out.communicate()
+
+            message = "--> Upgrading process result: " + str(out.returncode)
+            LOG.info(message)
+            print(message)
+
+            if out.returncode != 0:
+
+                LOG.error('--> Error executing upgrade command [%s]' % command)
+
+                if stderr != None:
+                    message = stderr.decode('utf-8').strip()
+                    LOG.error('|--> stderr: \n%s' % str(message))
+                    print(message)
+
+                if stdout != None:
+                    message = stdout.decode('utf-8').strip()
+                    LOG.error('|--> stdout: \n%s' % str(message))
+                    print(message)
+
+                print("\n\n --> Lightning-rod not upgraded!")
+
+                try:
+
+                    w_msg = WM.WampError(
+                        msg=str(stdout),
+                        req_id=req_id
+                    ).serialize()
+
+                except Exception as e:
+                    message = " - Wamp Message error in '" \
+                              + rpc_name + "': " + str(e)
+                    LOG.error(message)
+                    print(message)
+                    w_msg = WM.WampError(
+                        msg="WM error[" + str(e) + "]",
+                        req_id=req_id
+                    ).serialize()
+
+            else:
+
+                message = "--> Upgrade output:\n\n"\
+                          + str(stdout.decode('utf-8').strip()) + "\n\n"
+                LOG.info(message)
+                print(message)
+
+                try:
+
+                    w_msg = WM.WampSuccess(
+                        msg="LR upgraded",
+                        req_id=req_id
+                    ).serialize()
+
+                except Exception as e:
+                    LOG.error(
+                        " - Wamp Message error in '" + rpc_name + "': "
+                        + str(e)
+                    )
 
             try:
 
-                w_msg = WM.WampSuccess(
-                    msg="LR upgraded", req_id=req_id
-                ).serialize()
-
-            except Exception as e:
-                LOG.error(" - Wamp Message error in '"
-                          + rpc_name + "': " + str(e))
-
-            try:
-
-                notify = wampNotify(self.device_session, self.board, w_msg)
-
-                LOG.info(
-                    " - Notify result '" + rpc_name + "': "
-                    + str(notify.result) + " - " + str(notify.message)
-                )
+                wampNotify(self.device_session, self.board, w_msg, rpc_name)
 
             except exception.ApplicationError as e:
-                LOG.error(" - Notify result '"
-                          + rpc_name + "' error: " + str(e))
+                LOG.error(
+                    " - Notify result '" + rpc_name + "' error: " + str(e)
+                )
 
-            # Restart LR to start new version
-            lr_utils.LR_restart_delayed(2)
+            if out.returncode == 0:
+                # Restart LR to start new version
+                print("\n\n\nRestarting Lightning-rod after upgrade...")
+                lr_utils.LR_restart_delayed(2)
 
         try:
 
@@ -258,85 +304,206 @@ class DeviceManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def DevicePackageAction(self, req_id, parameters=None):
+    async def DevicePkgOperation(self, req_id, parameters=None):
         rpc_name = utils.getFuncName()
         LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
         LOG.info("--> Parameters: " + str(parameters))
 
-        try:
+        pkg_error = False
 
-            mng = parameters['manager']  # apt | apt-get | pip | pip3 | npm
-            opt = parameters['options']  # -f| --upgrade | etc
-            cmd = parameters['command']  # install | update | remove
-            pkg = parameters['package']
-            version = parameters['version']
+        PKG_MNGS = ['apt', 'apt-get', 'pip', 'pip3', 'npm']
+        PKG_CMDS = ['install', 'update', 'upgrade', 'remove', 'uninstall']
 
-            command = str(mng)
+        cmd = None
+        mng = None
+        pkg = None
+        opt = None
+        version = None
 
-            if opt == None:
-                command = command + " " + str(cmd) + " " + str(pkg)
-            else:
-                command = command + " " + str(opt) + " " + str(cmd) \
-                    + " " + str(pkg)
-
-            if version != None:
-
-                if (mng == "pip") or (mng == "pip3"):
-                    command = command + "==" + str(version)
-
-                elif (mng == "apt") or (mng == "apt-get"):
-                    command = command + "=" + str(version)
-
-                elif mng == "npm":
-                    command = command + "@" + str(version)
-
-            else:
-                command = command + " " + str(pkg)
-
-        except Exception as err:
-            LOG.warning(err)
+        print("\nPackage manager operation: ")
 
         def actionOnPackage():
             out = subprocess.Popen(
                 command,
                 shell=True,
-                stdout=subprocess.PIPE
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT
             )
 
-            output = out.communicate()[0].decode('utf-8').strip()
-            LOG.info(str(output))
+            (stdout, stderr) = out.communicate()
+
+            message = "--> package operation result: " + str(out.returncode)
+            LOG.info(message)
+            print(message)
+
+            if out.returncode != 0:
+
+                msg = 'Error executing package operation: ' + str(command)
+                LOG.error('--> ' + msg)
+                print("--> " + msg)
+
+                if stderr != None:
+                    message = stderr.decode('utf-8').strip()
+                    LOG.error('|--> stderr: \n%s' % str(message))
+                    print(message)
+
+                if stdout != None:
+                    message = stdout.decode('utf-8').strip()
+                    LOG.error('|--> stdout: \n%s' % str(message))
+                    print(message)
+
+                try:
+
+                    w_msg = WM.WampError(
+                        msg=str(stdout),
+                        req_id=req_id
+                    ).serialize()
+
+                except Exception as e:
+                    message = " - Wamp Message error in '" \
+                              + rpc_name + "': " + str(e)
+                    LOG.error(message)
+                    print(message)
+                    w_msg = WM.WampError(
+                        msg="WM error[" + str(e) + "]",
+                        req_id=req_id
+                    ).serialize()
+
+            else:
+
+                try:
+
+                    message = "Package operation completed!"
+                    print("--> " + str(message))
+                    w_msg = WM.WampSuccess(
+                        msg=message, req_id=req_id
+                    ).serialize()
+
+                except Exception as e:
+                    message = "--> Notify result '" \
+                              + rpc_name + "' error: " + str(e)
+                    LOG.error(message)
+                    print(message)
+                    w_msg = WM.WampError(
+                        msg="WM error[" + str(e) + "]",
+                        req_id=req_id
+                    ).serialize()
 
             try:
 
-                w_msg = WM.WampSuccess(
-                    msg="Package Action completed", req_id=req_id
-                ).serialize()
-
-            except Exception as e:
-                LOG.error(" - Wamp Message error in '"
-                          + rpc_name + "': " + str(e))
-
-            try:
-
-                notify = wampNotify(self.device_session, self.board, w_msg)
-
-                LOG.info(
-                    " - Notify result '" + rpc_name + "': "
-                    + str(notify.result) + " - " + str(notify.message)
-                )
+                wampNotify(self.device_session, self.board, w_msg,
+                           rpc_name)
 
             except exception.ApplicationError as e:
-                LOG.error(" - Notify result '"
-                          + rpc_name + "' error: " + str(e))
+                LOG.error(
+                    " - Notify result '" + rpc_name + "' error: " + str(e)
+                )
 
         try:
 
-            threading.Thread(target=actionOnPackage).start()
+            if 'manager' in parameters:
+
+                mng = parameters['manager']  # apt | apt-get | pip | pip3 | npm
+
+                if mng not in PKG_MNGS:
+
+                    if mng == "":
+                        raise Exception("package manager not specified!")
+                    else:
+                        raise Exception("package manager '"
+                                        + mng + "' not supported!")
+
+                command = str(mng)
+
+                if 'command' in parameters:
+
+                    cmd = parameters['command']  # install | update | remove
+
+                    if cmd not in PKG_CMDS:
+                        if cmd == "":
+                            raise Exception("operation not specified!")
+                        else:
+                            raise Exception("operation '"
+                                            + cmd + "' not supported!")
+
+                    if 'package' in parameters:
+                        pkg = parameters['package']
+
+                        if pkg == "":
+                            raise Exception("package not specified!")
+
+                        if 'options' in parameters:
+                            opt = parameters['options']  # -f| --upgrade | etc
+
+                            if opt != "":
+
+                                command = command + " " + str(opt) \
+                                    + " " + str(cmd) + " " + str(pkg)
+                            else:
+                                command = command + " " + str(cmd) \
+                                    + " " + str(pkg)
+
+                        else:
+                            command = command + " " + str(cmd) + " " + str(pkg)
+
+                        if 'version' in parameters:
+
+                            version = parameters['version']
+
+                            if version != "":
+                                if (mng == "pip") or (mng == "pip3"):
+                                    command = command + "==" + str(version)
+
+                                elif (mng == "apt") or (mng == "apt-get"):
+                                    command = command + "=" + str(version)
+
+                                elif mng == "npm":
+                                    command = command + "@" + str(version)
+
+                    else:
+                        raise Exception("package name not specified!")
+
+                else:
+                    raise Exception("command not specified!")
+
+            else:
+                raise Exception("package manager not specified!")
+
+            # If no errors in parsing parameters, start execution
+            try:
+
+                threading.Thread(target=actionOnPackage).start()
+
+                message = "Executing '" + str(cmd) \
+                          + "' operation on package '" + str(pkg) + "'"
+
+                print("--> " + str(message))
+
+                w_msg = WM.WampSuccess(
+                    msg=message,
+                    req_id=req_id
+                )
+                LOG.info(message)
+
+            except Exception:
+                message = "Error executing '" + str(cmd) \
+                          + "' operation on package '" + str(pkg) + "'"
+                print("--> " + str(message))
+                w_msg = WM.WampError(
+                    msg=message,
+                    req_id=req_id
+                )
+                LOG.warning(message)
 
         except Exception as err:
-            LOG.error("Error in parameters: " + str(err))
-
-        w_msg = WM.WampSuccess("LR upgrading...")
+            # LOG.warning(err)
+            message = "Error in parameters"
+            print("--> " + str(message) + ": " + str(err))
+            w_msg = WM.WampError(
+                msg=message,
+                req_id=req_id
+            )
+            LOG.warning(message)
 
         return w_msg.serialize()
 

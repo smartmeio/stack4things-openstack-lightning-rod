@@ -389,9 +389,6 @@ class ServiceManager(Module.Module):
 
     def _zombie_hunter(self, signum, frame):
 
-        # print("_zombie_hunter _zombie_hunter _zombie_hunter " +
-        #      "_zombie_hunter _zombie_hunter _zombie_hunter")
-
         time.sleep(1)
 
         wstun_found = False
@@ -782,7 +779,7 @@ class ServiceManager(Module.Module):
 
                 global WS_LIST
                 WS_LIST['services'][s_uuid]['pid'] = wstun.pid
-                print("------> WS_LIST: " + str(WS_LIST))
+                # print("------> WS_LIST: " + str(WS_LIST))
 
                 try:
                     if event != "enable":
@@ -800,7 +797,7 @@ class ServiceManager(Module.Module):
                 wsmon.start()
 
                 # print(threading.enumerate())
-                print(WS_MON_LIST)
+                # print(WS_MON_LIST)
 
                 # #############################################################
 
@@ -859,7 +856,7 @@ class ServiceManager(Module.Module):
 
             global WS_LIST
             WS_LIST['services'][s_uuid]['pid'] = wstun.pid
-            print("------> WS_LIST: " + str(WS_LIST))
+            # print("------> WS_LIST: " + str(WS_LIST))
 
             wsmon = Thread(
                 target=self._wstunMon,
@@ -882,8 +879,7 @@ class ServiceManager(Module.Module):
         LOG.info("RPC " + rpc_name + " CALLED")
 
         thr_list = str(threading.enumerate())
-        # print(WS_MON_LIST)
-        print(thr_list + "\n" + str(WS_MON_LIST))
+        # print(thr_list + "\n" + str(WS_MON_LIST))
 
         w_msg = WM.WampSuccess(thr_list)
 
@@ -907,7 +903,7 @@ class ServiceManager(Module.Module):
             with open(s_conf_FILE, 'w') as f:
                 json.dump(s_conf, f, indent=4)
 
-                print(s_conf)
+                # print(s_conf)
 
                 if output:
                     LOG.info(" - service updated:\n" + json.dumps(
