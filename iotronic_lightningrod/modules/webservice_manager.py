@@ -172,11 +172,11 @@ class WebServiceManager(Module.Module):
                     self.session.register(meth[1], rpc_addr)
                     LOG.info("   --> " + str(meth[0]))
 
-    async def ExposeWebservice(self,
+    async def ExposeWebservice(self, req_id,
                                board_dns, service_dns, local_port, dns_list):
 
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
 
         response = self.board.proxy._exposeWebservice(board_dns, service_dns,
                                                       local_port, dns_list)
@@ -193,10 +193,10 @@ class WebServiceManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def UnexposeWebservice(self, service, dns_list):
+    async def UnexposeWebservice(self, req_id, service, dns_list):
 
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
 
         response = self.board.proxy._disableWebservice(service, dns_list)
 
@@ -211,10 +211,10 @@ class WebServiceManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def EnableWebService(self, board_dns, owner_email):
+    async def EnableWebService(self, req_id, board_dns, owner_email):
 
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
 
         message = self.board.proxy._proxyEnableWebService(
             board_dns,

@@ -874,9 +874,9 @@ class ServiceManager(Module.Module):
 
         return wstun
 
-    async def ServicesStatus(self):
+    async def ServicesStatus(self, req_id):
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
 
         thr_list = str(threading.enumerate())
         # print(thr_list + "\n" + str(WS_MON_LIST))
@@ -919,7 +919,7 @@ class ServiceManager(Module.Module):
                 'cp ' + s_conf_FILE + ' ' + s_conf_FILE + '.bkp'
             )
 
-    async def ServiceEnable(self, service, public_port):
+    async def ServiceEnable(self, req_id, service, public_port):
 
         rpc_name = utils.getFuncName()
 
@@ -927,7 +927,8 @@ class ServiceManager(Module.Module):
         s_uuid = service['uuid']
         local_port = service['port']
 
-        LOG.info("RPC " + rpc_name + " CALLED for '" + service_name
+        LOG.info("RPC " + rpc_name
+                 + " CALLED [req_id: " + str(req_id) + "] for '" + service_name
                  + "' (" + s_uuid + ") service:")
 
         try:
@@ -1003,7 +1004,7 @@ class ServiceManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def ServiceDisable(self, service):
+    async def ServiceDisable(self, req_id, service):
 
         rpc_name = utils.getFuncName()
 
@@ -1011,7 +1012,7 @@ class ServiceManager(Module.Module):
         s_uuid = service['uuid']
 
         LOG.info("RPC " + rpc_name
-                 + " CALLED for '" + service_name
+                 + " CALLED [req_id: " + str(req_id) + "] for '" + service_name
                  + "' (" + s_uuid + ") service:")
 
         # Remove from services.json file
@@ -1120,7 +1121,7 @@ class ServiceManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def ServiceRestore(self, service, public_port):
+    async def ServiceRestore(self, req_id, service, public_port):
 
         rpc_name = utils.getFuncName()
 
@@ -1128,7 +1129,7 @@ class ServiceManager(Module.Module):
         s_uuid = service['uuid']
 
         LOG.info("RPC " + rpc_name
-                 + " CALLED for '" + service_name
+                 + " CALLED [req_id: " + str(req_id) + "] for '" + service_name
                  + "' (" + s_uuid + ") service:")
 
         # Load services.json configuration file
