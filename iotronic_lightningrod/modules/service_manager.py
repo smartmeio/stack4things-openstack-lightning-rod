@@ -27,6 +27,7 @@ import time
 
 import threading
 
+import copy
 from datetime import datetime
 from random import randint
 from threading import Thread
@@ -129,7 +130,7 @@ class ServiceManager(Module.Module):
         s_conf = self._loadServicesConf()
 
         global WS_LIST
-        WS_LIST = s_conf
+        WS_LIST = copy.deepcopy(s_conf)
 
         if s_conf == None:
 
@@ -307,7 +308,7 @@ class ServiceManager(Module.Module):
         s_conf = self._loadServicesConf()
 
         global WS_LIST
-        WS_LIST = s_conf
+        WS_LIST = copy.deepcopy(s_conf)
 
         if s_conf == None:
 
@@ -770,16 +771,22 @@ class ServiceManager(Module.Module):
                     print("WSTUN start event:")
 
                 cmd_print = 'WSTUN exec: ' + str(CONF.services.wstun_bin) \
-                            + opt_reverse + ' ' + self.wstun_url
+                            + " " + opt_reverse + ' ' + self.wstun_url
                 print(" - " + str(cmd_print))
                 LOG.debug(cmd_print)
 
                 # WSTUN MON
                 # #############################################################
 
-                global WS_LIST
-                WS_LIST['services'][s_uuid]['pid'] = wstun.pid
-                # print("------> WS_LIST: " + str(WS_LIST))
+                try:
+                    global WS_LIST
+                    WS_LIST['services'][s_uuid] = {}
+                    WS_LIST['services'][s_uuid]['pid'] = wstun.pid
+                    WS_LIST['services'][s_uuid]['updated_at'] = \
+                        datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')
+                    print("(add)------> WS_LIST: " + str(WS_LIST))
+                except Exception as err:
+                    LOG.error("Error WS_LIST: " + str(err))
 
                 try:
                     if event != "enable":
@@ -846,7 +853,7 @@ class ServiceManager(Module.Module):
             if (event != "boot"):
                 print("WSTUN start event:")
 
-            cmd_print = 'WSTUN exec: ' + str(CONF.services.wstun_bin) \
+            cmd_print = 'WSTUN exec: ' + str(CONF.services.wstun_bin) + " " \
                         + opt_reverse + ' ' + self.wstun_url
             print(" - " + str(cmd_print))
             LOG.debug(cmd_print)
@@ -855,8 +862,11 @@ class ServiceManager(Module.Module):
             # #############################################################
 
             global WS_LIST
+            WS_LIST['services'][s_uuid] = {}
             WS_LIST['services'][s_uuid]['pid'] = wstun.pid
-            # print("------> WS_LIST: " + str(WS_LIST))
+            WS_LIST['services'][s_uuid]['updated_at'] = \
+                datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')
+            print("(add)------> WS_LIST: " + str(WS_LIST))
 
             wsmon = Thread(
                 target=self._wstunMon,
@@ -873,17 +883,6 @@ class ServiceManager(Module.Module):
             wstun = None
 
         return wstun
-
-    async def ServicesStatus(self, req_id):
-        rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
-
-        thr_list = str(threading.enumerate())
-        # print(thr_list + "\n" + str(WS_MON_LIST))
-
-        w_msg = WM.WampSuccess(thr_list)
-
-        return w_msg.serialize()
 
     def _updateServiceConf(self, s_conf, s_uuid, output=True):
 
@@ -918,6 +917,17 @@ class ServiceManager(Module.Module):
             os.system(
                 'cp ' + s_conf_FILE + ' ' + s_conf_FILE + '.bkp'
             )
+
+    async def ServicesStatus(self, req_id):
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+
+        thr_list = str(threading.enumerate())
+        # print(thr_list + "\n" + str(WS_MON_LIST))
+
+        w_msg = WM.WampSuccess(thr_list)
+
+        return w_msg.serialize()
 
     async def ServiceEnable(self, req_id, service, public_port):
 
@@ -1067,6 +1077,10 @@ class ServiceManager(Module.Module):
 
                         self._updateServiceConf(s_conf, s_uuid,
                                                 output=False)
+
+                        global WS_LIST
+                        del WS_LIST['services'][s_uuid]
+                        print("(del)------> WS_LIST: " + str(WS_LIST))
 
                         LOG.info(" - " + message)
 

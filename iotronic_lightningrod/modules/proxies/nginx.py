@@ -24,6 +24,7 @@ LOG = logging.getLogger(__name__)
 
 import json
 import os
+import shutil
 import subprocess
 import time
 
@@ -246,6 +247,62 @@ class ProxyManager(Proxy.Proxy):
 
         except Exception as err:
             nginxMsg['log'] = "NGINX DNS setup error: " + str(err)
+            nginxMsg['code'] = ""
+            LOG.warning("--> " + nginxMsg['log'])
+
+        return json.dumps(nginxMsg)
+
+    def _proxyDisableWebService(self):
+
+        nginxMsg = {}
+
+        try:
+
+            # NGINX clean up
+            try:
+
+                nginx_path = "/etc/nginx/conf.d/"
+
+                shutil.rmtree(
+                    nginx_path,
+                    ignore_errors=False,
+                    onerror=None
+                )
+                LOG.debug("--> nginx conf.d path deleted")
+
+                os.makedirs(nginx_path, mode=0o755)
+                LOG.debug("--> nginx conf.d path re-created")
+
+            except Exception as err:
+                message = "Error removing nginx conf.d folder: " + str(err)
+                LOG.warning(" - " + message)
+
+            # Letsencrypt clean up
+            try:
+
+                le_path = "/etc/letsencrypt/"
+
+                shutil.rmtree(
+                    le_path,
+                    ignore_errors=False,
+                    onerror=None
+                )
+
+            except Exception as err:
+                message = "Error removing letsencrypt folder: " + str(err)
+                LOG.warning(" - " + message)
+
+            time.sleep(3)
+
+            # NGINX reload
+            self._proxyReload_proxyReload()
+
+            nginxMsg['result'] = "SUCCESS"
+            nginxMsg['message'] = "Webservice module disabled."
+            LOG.info("--> " + nginxMsg['message'])
+
+        except Exception as err:
+            nginxMsg['log'] = "NGINX DNS disabling error: " + str(err)
             nginxMsg['code'] = ""
             LOG.warning("--> " + nginxMsg['log'])
 

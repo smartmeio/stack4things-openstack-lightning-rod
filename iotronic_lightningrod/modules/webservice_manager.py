@@ -223,3 +223,14 @@ class WebServiceManager(Module.Module):
         w_msg = WM.WampSuccess(message)
 
         return w_msg.serialize()
+
+    async def DisableWebService(self, req_id):
+
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+
+        message = self.board.proxy._proxyDisableWebService()
+
+        w_msg = WM.WampSuccess(message)
+
+        return w_msg.serialize()
