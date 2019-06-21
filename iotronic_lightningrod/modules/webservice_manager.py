@@ -172,11 +172,14 @@ class WebServiceManager(Module.Module):
                     self.session.register(meth[1], rpc_addr)
                     LOG.info("   --> " + str(meth[0]))
 
-    async def ExposeWebservice(self, req_id,
-                               board_dns, service_dns, local_port, dns_list):
-
+    # LONG
+    async def ExposeWebservice(self, req, board_dns, service_dns,
+                               local_port, dns_list, parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
         LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         response = self.board.proxy._exposeWebservice(board_dns, service_dns,
                                                       local_port, dns_list)
@@ -186,17 +189,21 @@ class WebServiceManager(Module.Module):
         if(response['result'] == "SUCCESS"):
             message = "Webservice '" + service_dns + "' successfully exposed!"
             LOG.info("--> " + str(message))
-            w_msg = WM.WampSuccess(response)
+            w_msg = WM.WampSuccess(message=response, req_id=req_id)
         else:
             LOG.warning("--> " + str(response['message']))
-            w_msg = WM.WampWarning(response)
+            w_msg = WM.WampWarning(message=response, req_id=req_id)
 
         return w_msg.serialize()
 
-    async def UnexposeWebservice(self, req_id, service, dns_list):
-
+    # LONG
+    async def UnexposeWebservice(self, req, service, dns_list,
+                                 parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
         LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         response = self.board.proxy._disableWebservice(service, dns_list)
 
@@ -204,33 +211,40 @@ class WebServiceManager(Module.Module):
 
         if (response['result'] == "SUCCESS"):
             LOG.info("--> " + str(response['message']))
-            w_msg = WM.WampSuccess(response)
+            w_msg = WM.WampSuccess(message=response, req_id=req_id)
         else:
             LOG.warning("--> " + str(response['message']))
-            w_msg = WM.WampWarning(response)
+            w_msg = WM.WampWarning(message=response, req_id=req_id)
 
         return w_msg.serialize()
 
-    async def EnableWebService(self, req_id, board_dns, owner_email):
-
+    # LONG
+    async def EnableWebService(self, req, board_dns, owner_email,
+                               parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
         LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         message = self.board.proxy._proxyEnableWebService(
             board_dns,
             owner_email
         )
-        w_msg = WM.WampSuccess(message)
+        w_msg = WM.WampSuccess(message=message, req_id=req_id)
 
         return w_msg.serialize()
 
-    async def DisableWebService(self, req_id):
-
+    # LONG
+    async def DisableWebService(self, req, parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
         LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         message = self.board.proxy._proxyDisableWebService()
 
-        w_msg = WM.WampSuccess(message)
+        w_msg = WM.WampSuccess(message=message, req_id=req_id)
 
         return w_msg.serialize()

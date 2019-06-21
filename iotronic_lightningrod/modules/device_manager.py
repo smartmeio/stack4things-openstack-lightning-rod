@@ -33,7 +33,6 @@ from iotronic_lightningrod.modules import Module
 from iotronic_lightningrod.modules import utils as lr_utils
 import iotronic_lightningrod.wampmessage as WM
 
-
 from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
@@ -99,36 +98,69 @@ class DeviceManager(Module.Module):
 
                 LOG.info("   --> " + str(meth[0]) + " registered!")
 
-    async def DevicePing(self, req_id, parameters=None):
+    # SC
+    async def DevicePing(self, req, parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
-        LOG.info("--> Parameters: " + str(parameters))
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
-        command = "hostname"
+        def Ping():
 
-        try:
-            out = subprocess.Popen(
-                command,
-                shell=True,
-                stdout=subprocess.PIPE
-            )
+            try:
 
-            output = out.communicate()[0].decode('utf-8').strip()
+                command = "hostname"
 
-        except Exception as err:
-            LOG.error("Error in parameters: " + str(err))
-            output = "N/A"
+                out = subprocess.Popen(
+                    command,
+                    shell=True, stdout=subprocess.PIPE
+                )
 
-        message = str(output) + " @ " + \
-            str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
-        w_msg = WM.WampSuccess(message)
+                output = out.communicate()[0].decode('utf-8').strip()
+
+                message = str(output) + " @ " + \
+                    str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
+                w_msg = WM.WampSuccess(msg=message, req_id=req_id)
+
+            except Exception as err:
+                message = "Error in " + rpc_name + ": " + str(err)
+                LOG.error(message)
+                w_msg = WM.WampError(msg=message, req_id=req_id)
+
+            if (req['main_request_uuid'] != None):
+                wampNotify(self.device_session,
+                           self.board, w_msg.serialize(), rpc_name)
+            else:
+                return w_msg
+
+        if (req['main_request_uuid'] != None):
+
+            LOG.info(" - main request: " + str(req['main_request_uuid']))
+
+            try:
+
+                threading.Thread(target=Ping).start()
+
+                w_msg = WM.WampRunning(msg=rpc_name, req_id=req_id)
+
+            except Exception as err:
+                message = "Error in thr_" + rpc_name + ": " + str(err)
+                LOG.error(message)
+                w_msg = WM.WampError(msg=message, req_id=req_id)
+
+        else:
+            w_msg = Ping()
 
         return w_msg.serialize()
 
-    async def DeviceReboot(self, req_id, parameters=None):
+    # SC
+    async def DeviceReboot(self, req, parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
-        LOG.info("--> Parameters: " + str(parameters))
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         delay = 3  # default delay
 
@@ -161,10 +193,13 @@ class DeviceManager(Module.Module):
 
         return w_msg.serialize()
 
-    async def DeviceRestartLR(self, req_id, parameters=None):
+    # SC
+    async def DeviceRestartLR(self, req, parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
-        LOG.info("--> Parameters: " + str(parameters))
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         delay = 3  # default delay
 
@@ -174,7 +209,7 @@ class DeviceManager(Module.Module):
                 delay = parameters['delay']
 
         except Exception as err:
-            LOG.error("Error in 'delay' parameter: " + str(err))
+            LOG.error(" - Error in 'delay' parameter: " + str(err))
             LOG.warning("--> default 'delay' parameter set: " + str(delay))
 
         LOG.info("--> delay: " + str(delay))
@@ -186,14 +221,17 @@ class DeviceManager(Module.Module):
                   + " seconds (" \
                   + datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f') + ")..."
 
-        w_msg = WM.WampSuccess(message)
+        w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
         return w_msg.serialize()
 
-    async def DeviceUpgradeLR(self, req_id, parameters=None):
+    # LONG
+    async def DeviceUpgradeLR(self, req, parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
-        LOG.info("--> Parameters: " + str(parameters))
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         if 'version' in parameters:
             version = parameters['version']
@@ -245,8 +283,7 @@ class DeviceManager(Module.Module):
                 try:
 
                     w_msg = WM.WampError(
-                        msg=str(stdout),
-                        req_id=req_id
+                        msg=str(stdout), req_id=req_id
                     ).serialize()
 
                 except Exception as e:
@@ -255,8 +292,7 @@ class DeviceManager(Module.Module):
                     LOG.error(message)
                     print(message)
                     w_msg = WM.WampError(
-                        msg="WM error[" + str(e) + "]",
-                        req_id=req_id
+                        msg="WM error[" + str(e) + "]", req_id=req_id
                     ).serialize()
 
             else:
@@ -300,14 +336,17 @@ class DeviceManager(Module.Module):
         except Exception as err:
             LOG.error("Error in parameters: " + str(err))
 
-        w_msg = WM.WampRunning("LR upgrading...")
+        w_msg = WM.WampRunning(msg="LR upgrading...", req_id=req_id)
 
         return w_msg.serialize()
 
-    async def DevicePkgOperation(self, req_id, parameters=None):
+    # LONG
+    async def DevicePkgOperation(self, req, parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
-        LOG.info("--> Parameters: " + str(parameters))
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         pkg_error = False
 
@@ -334,29 +373,24 @@ class DeviceManager(Module.Module):
 
             message = "--> package operation result: " + str(out.returncode)
             LOG.info(message)
-            print(message)
 
             if out.returncode != 0:
 
                 msg = 'Error executing package operation: ' + str(command)
                 LOG.error('--> ' + msg)
-                print("--> " + msg)
 
                 if stderr != None:
                     message = stderr.decode('utf-8').strip()
                     LOG.error('|--> stderr: \n%s' % str(message))
-                    print(message)
 
                 if stdout != None:
                     message = stdout.decode('utf-8').strip()
                     LOG.error('|--> stdout: \n%s' % str(message))
-                    print(message)
 
                 try:
 
                     w_msg = WM.WampError(
-                        msg=str(stdout),
-                        req_id=req_id
+                        msg=str(stdout), req_id=req_id
                     ).serialize()
 
                 except Exception as e:
@@ -365,8 +399,7 @@ class DeviceManager(Module.Module):
                     LOG.error(message)
                     print(message)
                     w_msg = WM.WampError(
-                        msg="WM error[" + str(e) + "]",
-                        req_id=req_id
+                        msg="WM error[" + str(e) + "]", req_id=req_id
                     ).serialize()
 
             else:
@@ -385,14 +418,12 @@ class DeviceManager(Module.Module):
                     LOG.error(message)
                     print(message)
                     w_msg = WM.WampError(
-                        msg="WM error[" + str(e) + "]",
-                        req_id=req_id
+                        msg="WM error[" + str(e) + "]", req_id=req_id
                     ).serialize()
 
             try:
 
-                wampNotify(self.device_session, self.board, w_msg,
-                           rpc_name)
+                wampNotify(self.device_session, self.board, w_msg, rpc_name)
 
             except exception.ApplicationError as e:
                 LOG.error(
@@ -477,63 +508,107 @@ class DeviceManager(Module.Module):
                 message = "Executing '" + str(cmd) \
                           + "' operation on package '" + str(pkg) + "'"
 
-                print("--> " + str(message))
-
-                w_msg = WM.WampSuccess(
-                    msg=message,
-                    req_id=req_id
+                w_msg = WM.WampRunning(
+                    msg=message, req_id=req_id
                 )
                 LOG.info(message)
 
             except Exception:
                 message = "Error executing '" + str(cmd) \
                           + "' operation on package '" + str(pkg) + "'"
-                print("--> " + str(message))
                 w_msg = WM.WampError(
-                    msg=message,
-                    req_id=req_id
+                    msg=message, req_id=req_id
                 )
                 LOG.warning(message)
 
         except Exception as err:
             # LOG.warning(err)
-            message = "Error in parameters"
-            print("--> " + str(message) + ": " + str(err))
+            message = "Error in parameters: " + str(err)
             w_msg = WM.WampError(
-                msg=message,
-                req_id=req_id
+                msg=message, req_id=req_id
             )
             LOG.warning(message)
 
         return w_msg.serialize()
 
-    async def DeviceEcho(self, req_id, parameters=None):
+    # SC
+    async def DeviceEcho(self, req, parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
-        LOG.info("--> Parameters: " + str(parameters))
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
-        try:
+        def Echo():
 
-            message = str(parameters['say']) + " @ " + \
-                str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
-            LOG.info("--> Echo: " + str(message))
+            try:
 
-        except Exception as err:
-            LOG.warning("Error in parameters: " + str(err))
-            message = str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
-            LOG.info("--> Echo (no-params): " + str(message))
+                message = str(parameters['say']) + " @ " + \
+                    str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
+                LOG.info("--> Echo: " + str(message))
+                w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
-        w_msg = WM.WampSuccess(message)
+            except Exception as err:
+                LOG.warning("--> Error in " + rpc_name + ": " + str(err))
+                message = str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
+                LOG.info("--> Echo (no-params): " + str(message))
+                w_msg = WM.WampSuccess(msg=message, req_id=req_id)
+
+            if (req['main_request_uuid'] != None):
+                wampNotify(self.device_session,
+                           self.board, w_msg.serialize(), rpc_name)
+            else:
+                return w_msg
+
+        if (req['main_request_uuid'] != None):
+
+            LOG.info(" - main request: " + str(req['main_request_uuid']))
+            try:
+                threading.Thread(target=Echo).start()
+                w_msg = WM.WampRunning(msg=rpc_name, req_id=req_id)
+
+            except Exception as err:
+                message = "Error in thr_" + rpc_name + ": " + str(err)
+                LOG.error(message)
+                w_msg = WM.WampError(msg=message, req_id=req_id)
+
+        else:
+            w_msg = Echo()
 
         return w_msg.serialize()
 
-    async def DeviceNetConfig(self, req_id, parameters=None):
+    # SC
+    async def DeviceNetConfig(self, req, parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
-        LOG.info("--> Parameters: " + str(parameters))
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
-        message = getIfconfig()
-        w_msg = WM.WampSuccess(message)
+        def Ifconfig():
+            message = getIfconfig()
+            w_msg = WM.WampSuccess(msg=message, req_id=req_id)
+
+            if (req['main_request_uuid'] != None):
+                wampNotify(self.device_session,
+                           self.board, w_msg.serialize(), rpc_name)
+            else:
+                return w_msg
+
+        if (req['main_request_uuid'] != None):
+
+            LOG.info(" - main request: " + str(req['main_request_uuid']))
+            try:
+                threading.Thread(target=Ifconfig).start()
+                w_msg = WM.WampRunning(msg=rpc_name, req_id=req_id)
+
+            except Exception as err:
+                message = "Error in thr_" + rpc_name + ": " + str(err)
+                LOG.error(message)
+                w_msg = WM.WampError(msg=message, req_id=req_id)
+
+        else:
+            w_msg = Ifconfig()
 
         return w_msg.serialize()
 
@@ -554,6 +629,30 @@ def getIfconfig():
 
     except Exception as err:
         LOG.error("Error in 'ifconfig' command: " + str(err))
+        output = "N/A"
+
+    return output
+
+
+def getSerialDevice():
+
+    try:
+
+        command = "cat /proc/cpuinfo |grep Serial| awk '{print $3}'"
+
+        out = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=subprocess.PIPE
+        )
+
+        output = str(out.communicate()[0].decode('utf-8').strip())
+
+        if(output == ""):
+            output = "N/A"
+
+    except Exception as err:
+        LOG.error("Error getting serial device: " + str(err))
         output = "N/A"
 
     return output

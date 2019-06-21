@@ -295,7 +295,7 @@ class ProxyManager(Proxy.Proxy):
             time.sleep(3)
 
             # NGINX reload
-            self._proxyReload_proxyReload()
+            self._proxyReload()
 
             nginxMsg['result'] = "SUCCESS"
             nginxMsg['message'] = "Webservice module disabled."

@@ -66,6 +66,9 @@ lr_opts = [
     cfg.IntOpt('rpc_alive_timer',
                default=3,
                help=('RPC alive response time threshold')),
+    cfg.IntOpt('connection_failure_timer',
+               default=600,
+               help=('IoTronic connection failure timer')),
 ]
 
 CONF = cfg.CONF
@@ -82,6 +85,12 @@ wport = None
 
 global board
 board = None
+
+from threading import Timer
+global connFailure
+connFailure = None
+global connFailureBoot
+connFailureBoot = None
 
 reconnection = False
 RPC = {}
@@ -127,6 +136,7 @@ class LightningRod(object):
             if CONF.debug:
                 txaio.start_logging(level="debug")
 
+            # Manage LR exit signals
             signal.signal(signal.SIGINT, self.stop_handler)
 
             LogoLR()
@@ -141,6 +151,8 @@ class LightningRod(object):
                      " seconds")
             LOG.info(" - RPC-Alive Check timer: " + str(CONF.rpc_alive_timer) +
                      " seconds")
+            LOG.info(" - Connection Faliure timeout: " + str(
+                CONF.connection_failure_timer) + " seconds")
 
             global board
             board = Board()
@@ -162,6 +174,16 @@ class LightningRod(object):
                 # LR was configured and we have to load its new configuration
                 board.loadSettings()
 
+            # Start timer checks on wamp connection
+            def timeout():
+                LOG.warning("WAMP Connection failure timer onBoot: EXPIRED")
+                lr_utils.LR_restart()
+
+            global connFailureBoot
+            connFailureBoot = Timer(CONF.connection_failure_timer, timeout)
+            connFailureBoot.start()
+            LOG.info("WAMP Connection failure timer onBoot: STARTED")
+
             # Start Wamp Manager
             self.w = WampManager(board.wamp_config)
             self.w.start()
@@ -172,12 +194,15 @@ class LightningRod(object):
     def stop_handler(self, signum, frame):
 
         try:
-            # No zombie alert activation
-            zombie_alert = False
+
+            zombie_alert = False  # No zombie alert activation
+
             LOG.info("LR is shutting down...")
             if self.w != None:
                 self.w.stop()
+
             Bye()
+
         except Exception as e:
             LOG.error("Error closing LR")
 
@@ -395,6 +420,10 @@ async def IotronicLogin(board, session, details):
 
     except Exception as e:
         LOG.warning("Iotronic board connection error: " + str(e))
+        reconnection = True
+        # We restart Lightning-rod if RPC 'stack4things.connection'
+        # returns generic errors
+        lr_utils.LR_restart()
 
 
 def wampConnect(wamp_conf):
@@ -458,7 +487,10 @@ def wampConnect(wamp_conf):
         # with the new WAMP configuration.
         if connected == False and board.status == "registered" \
                 and reconnection == False:
-            component.start(loop)
+            try:
+                component.start(loop)
+            except Exception as err:
+                LOG.error(" - Error connecting asyncio-component: " + str(err))
 
         @component.on_join
         async def join(session, details):
@@ -503,10 +535,25 @@ def wampConnect(wamp_conf):
 
             global SESSION
             SESSION = session
-
             # LOG.debug(" - session: " + str(details))
 
             board.session_id = details.session
+
+            # Clean Connection WAMP timers ------------------------------------
+            global connFailure
+            if connFailure != None:
+                LOG.warning(
+                    "WAMP Connection Failure timer: CANCELLED (onJoin)"
+                )
+                connFailure.cancel()
+
+            global connFailureBoot
+            if connFailureBoot != None:
+                LOG.warning(
+                    "WAMP Connection Failure timer onBoot: CANCELLED (onJoin)"
+                )
+                connFailureBoot.cancel()
+            # -----------------------------------------------------------------
 
             LOG.info(" - Joined in realm " + board.wamp_config['realm'] + ":")
             LOG.info("   - WAMP Agent: " + str(board.agent))
@@ -725,6 +772,27 @@ def wampConnect(wamp_conf):
         @component.on_leave
         async def onLeave(session, details):
             LOG.warning("WAMP Session Left: reason = " + str(details.reason))
+
+        @component.on_connectfailure
+        async def onConnectFailure(session, fail_msg):
+            LOG.warning("WAMP Connection Failure: " + str(fail_msg))
+
+            LOG.warning(" - timeout set @ " +
+                        str(CONF.connection_failure_timer))
+
+            global connFailure
+            if connFailure != None:
+                LOG.warning("WAMP Connection Failure timer: CANCELLED")
+                connFailure.cancel()
+
+            def timeout():
+                LOG.warning("WAMP Connection Failure timer: EXPIRED")
+                lr_utils.LR_restart()
+
+            global connFailure
+            connFailure = Timer(CONF.connection_failure_timer, timeout)
+            connFailure.start()
+            LOG.warning("WAMP Connection Failure timer: STARTED")
 
         @component.on_disconnect
         async def onDisconnect(session, was_clean):

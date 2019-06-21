@@ -12,6 +12,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 from __future__ import absolute_import
 
 __author__ = "Nicola Peditto <n.peditto@gmail.com>"
@@ -22,10 +23,12 @@ import json
 import os
 import queue
 import shutil
+import threading
 import time
 
 
 from iotronic_lightningrod.common import utils
+from iotronic_lightningrod.lightningrod import wampNotify
 from iotronic_lightningrod.modules import Module
 from iotronic_lightningrod.modules.plugins import PluginSerializer
 import iotronic_lightningrod.wampmessage as WM
@@ -221,7 +224,8 @@ class PluginManager(Module.Module):
             with open(PLUGINS_CONF_FILE, 'w') as f:
                 json.dump(plugins_conf, f, indent=4)
 
-    async def PluginInject(self, plugin, onboot):
+    # SC
+    async def PluginInject(self, req, plugin, onboot, parameters=None):
         """Plugin injection procedure into the board:
 
          1. get Plugin files
@@ -234,93 +238,123 @@ class PluginManager(Module.Module):
 
         """
 
-        rpc_name = utils.getFuncName()
-
         try:
+
+            req_id = req['uuid']
+            rpc_name = utils.getFuncName()
 
             plugin_uuid = plugin['uuid']
             plugin_name = plugin['name']
             code = plugin['code']
             callable = plugin['callable']
 
-            LOG.info("RPC " + rpc_name + " for plugin '"
-                     + plugin_name + "' (" + plugin_uuid + ")")
+            LOG.info("RPC " + rpc_name + " CALLED [req_id: "
+                     + str(req_id) + "] for plugin '"
+                     + plugin_name + "' (" + plugin_uuid + "):")
 
-            # Deserialize the plugin code received
-            ser = PluginSerializer.ObjectSerializer()
-            loaded = ser.deserialize_entity(code)
-            # LOG.debug("- plugin loaded code:\n" + loaded)
+            if parameters is not None:
+                LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
-            plugin_path = CONF.lightningrod_home \
-                + "/plugins/" + plugin_uuid + "/"
-            plugin_filename = plugin_path + plugin_uuid + ".py"
+            def Inject():
 
-            # Plugin folder creation if does not exist
-            if not os.path.exists(plugin_path):
-                os.makedirs(plugin_path)
+                # Deserialize the plugin code received
+                ser = PluginSerializer.ObjectSerializer()
+                loaded = ser.deserialize_entity(code)
+                # LOG.debug("- plugin loaded code:\n" + loaded)
 
-            # Plugin code file creation
-            with open(plugin_filename, "w") as pluginfile:
-                pluginfile.write(loaded)
+                plugin_path = CONF.lightningrod_home \
+                    + "/plugins/" + plugin_uuid + "/"
+                plugin_filename = plugin_path + plugin_uuid + ".py"
 
-            # Load plugins.json configuration file
-            plugins_conf = self._loadPluginsConf()
+                # Plugin folder creation if does not exist
+                if not os.path.exists(plugin_path):
+                    os.makedirs(plugin_path)
 
-            # LOG.debug("Plugin setup:\n"
-            #          + json.dumps(plugin, indent=4, sort_keys=True))
+                # Plugin code file creation
+                with open(plugin_filename, "w") as pluginfile:
+                    pluginfile.write(loaded)
 
-            # Save plugin settings in plugins.json
-            if plugin_uuid not in plugins_conf['plugins']:
+                # Load plugins.json configuration file
+                plugins_conf = self._loadPluginsConf()
 
-                # It is a new plugin
-                plugins_conf['plugins'][plugin_uuid] = {}
-                plugins_conf['plugins'][plugin_uuid]['name'] = plugin_name
-                plugins_conf['plugins'][plugin_uuid]['onboot'] = onboot
-                plugins_conf['plugins'][plugin_uuid]['callable'] = callable
-                plugins_conf['plugins'][plugin_uuid]['injected_at'] = \
-                    datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')
-                plugins_conf['plugins'][plugin_uuid]['updated_at'] = ""
-                plugins_conf['plugins'][plugin_uuid]['status'] = "injected"
+                # LOG.debug("Plugin setup:\n"
+                #          + json.dumps(plugin, indent=4, sort_keys=True))
 
-                LOG.info(" - Plugin '" + plugin_name + "' created!")
-                message = rpc_name + " result: INJECTED"
+                # Save plugin settings in plugins.json
+                if plugin_uuid not in plugins_conf['plugins']:
+
+                    # It is a new plugin
+                    plugins_conf['plugins'][plugin_uuid] = {}
+                    plugins_conf['plugins'][plugin_uuid]['name'] = plugin_name
+                    plugins_conf['plugins'][plugin_uuid]['onboot'] = onboot
+                    plugins_conf['plugins'][plugin_uuid]['callable'] = callable
+                    plugins_conf['plugins'][plugin_uuid]['injected_at'] = \
+                        datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')
+                    plugins_conf['plugins'][plugin_uuid]['updated_at'] = ""
+                    plugins_conf['plugins'][plugin_uuid]['status'] = "injected"
+
+                    LOG.info(" - Plugin '" + plugin_name + "' created!")
+                    message = rpc_name + " result: INJECTED"
+
+                else:
+                    # The plugin was already injected and we are updating it
+                    plugins_conf['plugins'][plugin_uuid]['name'] = plugin_name
+                    plugins_conf['plugins'][plugin_uuid]['onboot'] = onboot
+                    plugins_conf['plugins'][plugin_uuid]['callable'] = callable
+                    plugins_conf['plugins'][plugin_uuid]['updated_at'] = \
+                        datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')
+                    plugins_conf['plugins'][plugin_uuid]['status'] = "updated"
+
+                    LOG.info("Plugin '" + plugin_name
+                             + "' (" + str(plugin_uuid) + ") updated!")
+                    message = rpc_name + " result: UPDATED"
+
+                LOG.info(" - Plugin setup:\n" + json.dumps(
+                    plugins_conf['plugins'][plugin_uuid],
+                    indent=4,
+                    sort_keys=True
+                ))
+
+                # Apply the changes to plugins.json
+                with open(PLUGINS_CONF_FILE, 'w') as f:
+                    json.dump(plugins_conf, f, indent=4)
+
+                w_msg = WM.WampSuccess(msg=message, req_id=req_id)
+
+                if (req['main_request_uuid'] != None):
+                    wampNotify(self.device_session,
+                               self.board, w_msg.serialize(), rpc_name)
+                else:
+                    return w_msg
+
+            if (req['main_request_uuid'] != None):
+
+                LOG.info(
+                    " - main request: " + str(req['main_request_uuid']))
+                try:
+                    threading.Thread(target=Inject).start()
+                    w_msg = WM.WampRunning(msg=rpc_name, req_id=req_id)
+
+                except Exception as err:
+                    message = "Error in thr_" + rpc_name + ": " + str(err)
+                    LOG.error(message)
+                    w_msg = WM.WampError(msg=message, req_id=req_id)
 
             else:
-                # The plugin was already injected and we are updating it
-                plugins_conf['plugins'][plugin_uuid]['name'] = plugin_name
-                plugins_conf['plugins'][plugin_uuid]['onboot'] = onboot
-                plugins_conf['plugins'][plugin_uuid]['callable'] = callable
-                plugins_conf['plugins'][plugin_uuid]['updated_at'] = \
-                    datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')
-                plugins_conf['plugins'][plugin_uuid]['status'] = "updated"
-
-                LOG.info("Plugin '" + plugin_name
-                         + "' (" + str(plugin_uuid) + ") updated!")
-                message = rpc_name + " result: UPDATED"
-
-            LOG.info(" - Plugin setup:\n" + json.dumps(
-                plugins_conf['plugins'][plugin_uuid],
-                indent=4,
-                sort_keys=True
-            ))
-
-            # Apply the changes to plugins.json
-            with open(PLUGINS_CONF_FILE, 'w') as f:
-                json.dump(plugins_conf, f, indent=4)
-
-            LOG.info(" - " + message)
-            w_msg = WM.WampSuccess(message)
+                w_msg = Inject()
 
         except Exception as err:
             message = "Plugin injection error: " + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(str(err))
+            w_msg = WM.WampError(msg=message, req_id=req_id)
+            LOG.warning(message)
 
             return w_msg.serialize()
 
         return w_msg.serialize()
 
-    async def PluginStart(self, plugin_uuid, parameters=None):
+    # SC
+    async def PluginStart(self, req, plugin_uuid, parameters=None):
         """To start an asynchronous plugin;
 
         the plugin will run until the PluginStop is called.
@@ -332,10 +366,13 @@ class PluginManager(Module.Module):
         """
 
         try:
-
+            req_id = req['uuid']
             rpc_name = utils.getFuncName()
-            LOG.info("RPC " + rpc_name + " called for '"
-                     + plugin_uuid + "' plugin:")
+            LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id)
+                     + "] for '" + plugin_uuid + "' plugin:")
+
+            if parameters is not None:
+                LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
             plugins_conf = self._loadPluginsConf()
 
@@ -351,7 +388,7 @@ class PluginManager(Module.Module):
                     message = "ALREADY STARTED!"
                     LOG.warning(" - Plugin "
                                 + plugin_uuid + " already started!")
-                    w_msg = WM.WampError(message)
+                    w_msg = WM.WampError(message=message, req_id=req_id)
 
                 else:
 
@@ -406,33 +443,34 @@ class PluginManager(Module.Module):
 
                         response = "STARTED"
                         LOG.info(" - " + worker.complete(rpc_name, response))
-                        w_msg = WM.WampSuccess(response)
+                        w_msg = WM.WampSuccess(message=response, req_id=req_id)
 
                     else:
                         message = \
                             rpc_name + " - ERROR " \
                             + plugin_filename + " does not exist!"
                         LOG.error(" - " + message)
-                        w_msg = WM.WampError(message)
+                        w_msg = WM.WampError(message=message, req_id=req_id)
 
             else:
                 message = "Plugin " + plugin_uuid \
                           + " does not exist in this board!"
                 LOG.warning(" - " + message)
-                w_msg = WM.WampError(message)
+                w_msg = WM.WampError(message=message, req_id=req_id)
 
         except Exception as err:
             message = \
                 rpc_name + " - ERROR - plugin (" + plugin_uuid + ") - " \
                 + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(str(err))
+            w_msg = WM.WampError(message=str(err), req_id=req_id)
 
             return w_msg.serialize()
 
         return w_msg.serialize()
 
-    async def PluginStop(self, plugin_uuid, parameters=None):
+    # SC
+    async def PluginStop(self, req, plugin_uuid, parameters=None):
         """To stop an asynchronous plugin
 
         :param plugin_uuid: ID of plufin to stop
@@ -440,9 +478,12 @@ class PluginManager(Module.Module):
         :return: return a response to RPC request
 
         """
+
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED for '"
-                 + plugin_uuid + "' plugin:")
+
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: "
+                 + str(req_id) + "] for '" + plugin_uuid + "' plugin:")
 
         if parameters is not None:
             LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
@@ -468,7 +509,7 @@ class PluginManager(Module.Module):
 
                     message = "STOPPED"
                     LOG.info(" - " + worker.complete(rpc_name, message))
-                    w_msg = WM.WampSuccess(message)
+                    w_msg = WM.WampSuccess(message=message, req_id=req_id)
 
                 else:
                     message = \
@@ -476,27 +517,28 @@ class PluginManager(Module.Module):
                         + " - ERROR - plugin (" + plugin_uuid \
                         + ") is instantiated but is not running anymore!"
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(message)
+                    w_msg = WM.WampError(message=message, req_id=req_id)
 
             else:
                 message = \
                     rpc_name + " - WARNING " \
                     + plugin_uuid + "  is not running!"
                 LOG.warning(" - " + message)
-                w_msg = WM.WampWarning(message)
+                w_msg = WM.WampWarning(message=message, req_id=req_id)
 
         except Exception as err:
             message = \
                 rpc_name \
                 + " - ERROR - plugin (" + plugin_uuid + ") - " + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(str(err))
+            w_msg = WM.WampError(message=str(err), req_id=req_id)
 
             return w_msg.serialize()
 
         return w_msg.serialize()
 
-    async def PluginCall(self, plugin_uuid, parameters=None):
+    # SC
+    async def PluginCall(self, req, plugin_uuid, parameters=None):
         """To execute a synchronous plugin into the board
 
         :param plugin_uuid:
@@ -504,9 +546,13 @@ class PluginManager(Module.Module):
         :return: return a response to RPC request
 
         """
-
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED for " + plugin_uuid + " plugin:")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: "
+                 + str(req_id) + "] for '" + plugin_uuid + "' plugin:")
+
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         try:
 
@@ -516,7 +562,7 @@ class PluginManager(Module.Module):
 
                 message = "Plugin " + plugin_uuid + " already started!"
                 LOG.warning(" - " + message)
-                w_msg = WM.WampWarning(message)
+                w_msg = WM.WampWarning(message=message, req_id=req_id)
 
             else:
 
@@ -547,7 +593,7 @@ class PluginManager(Module.Module):
                         message = "Error importing plugin " \
                                   + plugin_filename + ": " + str(err)
                         LOG.error(" - " + message)
-                        w_msg = WM.WampError(str(err))
+                        w_msg = WM.WampError(message=str(err), req_id=req_id)
 
                         return w_msg.serialize()
 
@@ -585,13 +631,13 @@ class PluginManager(Module.Module):
                         response = q_result.get()
 
                         LOG.info(" - " + worker.complete(rpc_name, response))
-                        w_msg = WM.WampSuccess(response)
+                        w_msg = WM.WampSuccess(message=response, req_id=req_id)
 
                     except Exception as err:
                         message = "Error spawning plugin " \
                                   + plugin_filename + ": " + str(err)
                         LOG.error(" - " + message)
-                        w_msg = WM.WampError(str(err))
+                        w_msg = WM.WampError(message=str(err), req_id=req_id)
 
                         return w_msg.serialize()
 
@@ -600,30 +646,36 @@ class PluginManager(Module.Module):
                         rpc_name \
                         + " - ERROR " + plugin_filename + " does not exist!"
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(message)
+                    w_msg = WM.WampError(message=message, req_id=req_id)
 
         except Exception as err:
             message = \
                 rpc_name \
                 + " - ERROR - plugin (" + plugin_uuid + ") - " + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(str(err))
+            w_msg = WM.WampError(message=message, req_id=req_id)
 
             return w_msg.serialize()
 
         return w_msg.serialize()
 
-    async def PluginRemove(self, plugin_uuid):
+    # SC
+    async def PluginRemove(self, req, plugin_uuid, parameters=None):
         """To remove a plugin from the board
 
         :param plugin_uuid:
         :return: return a response to RPC request
 
         """
-
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
 
-        LOG.info("RPC " + rpc_name + " for plugin " + plugin_uuid)
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: "
+                 + str(req_id) + "] for '"
+                 + plugin_uuid + "' plugin:")
+
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         plugin_path = CONF.lightningrod_home + "/plugins/" + plugin_uuid + "/"
 
@@ -632,7 +684,7 @@ class PluginManager(Module.Module):
 
             message = "Plugin paths or files do not exist!"
             LOG.error(message)
-            w_msg = WM.WampError(message)
+            w_msg = WM.WampError(message=message, req_id=req_id)
 
             return w_msg.serialize()
 
@@ -654,7 +706,7 @@ class PluginManager(Module.Module):
                     message = "Removing plugin's files error in " \
                               + plugin_path + ": " + str(err)
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(str(err))
+                    w_msg = WM.WampError(message=message, req_id=req_id)
 
                     return w_msg.serialize()
 
@@ -692,35 +744,40 @@ class PluginManager(Module.Module):
                                   + plugin_uuid + " already removed!"
                         LOG.warning(" - " + message)
 
-                    w_msg = WM.WampSuccess(message)
+                    w_msg = WM.WampSuccess(message=message, req_id=req_id)
 
                     return w_msg.serialize()
 
                 except Exception as err:
                     message = "Updating plugins.json error: " + str(err)
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(str(err))
+                    w_msg = WM.WampError(message=message, req_id=req_id)
 
                     return w_msg.serialize()
 
             except Exception as err:
                 message = "Plugin removing error: {0}".format(err)
                 LOG.error(" - " + message)
-                w_msg = WM.WampError(str(err))
+                w_msg = WM.WampError(message=message, req_id=req_id)
 
                 return w_msg.serialize()
 
-    async def PluginReboot(self, plugin_uuid, parameters=None):
+    # SC
+    async def PluginReboot(self, req, plugin_uuid, parameters=None):
         """To reboot an asynchronous plugin (callable = false) into the board.
 
         :return: return a response to RPC request
 
         """
-
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
 
-        LOG.info("RPC " + rpc_name + " CALLED for '"
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: "
+                 + str(req_id) + "] for '"
                  + plugin_uuid + "' plugin:")
+
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         LOG.info(" - plugin restarting with parameters:")
         LOG.info("   " + str(parameters))
@@ -795,34 +852,40 @@ class PluginManager(Module.Module):
 
                     message = "REBOOTED"
                     LOG.info(" - " + worker.complete(rpc_name, message))
-                    w_msg = WM.WampSuccess(message)
+                    w_msg = WM.WampSuccess(message=message, req_id=req_id)
 
                 else:
                     message = "ERROR '" + plugin_filename + "' does not exist!"
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(message)
+                    w_msg = WM.WampError(message=message, req_id=req_id)
 
         except Exception as err:
             message = "Error rebooting plugin '" \
                       + plugin_uuid + "': " + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(str(err))
+            w_msg = WM.WampError(message=message, req_id=req_id)
 
             return w_msg.serialize()
 
         return w_msg.serialize()
 
-    async def PluginStatus(self, plugin_uuid):
+    # SC
+    async def PluginStatus(self, req, plugin_uuid, parameters=None):
         """Check status thread plugin
 
         :param plugin_uuid:
         :return:
 
         """
-
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED for '"
+
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: "
+                 + str(req_id) + "] for '"
                  + plugin_uuid + "' plugin:")
+
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         try:
 
@@ -836,20 +899,20 @@ class PluginManager(Module.Module):
                     result = "DEAD"
 
                 LOG.info(" - " + worker.complete(rpc_name, result))
-                w_msg = WM.WampSuccess(result)
+                w_msg = WM.WampSuccess(message=result, req_id=req_id)
 
             else:
                 result = "DEAD"
                 LOG.info(" - " + rpc_name + " result for "
                          + plugin_uuid + ": " + result)
-                w_msg = WM.WampSuccess(result)
+                w_msg = WM.WampSuccess(message=result, req_id=req_id)
 
         except Exception as err:
             message = \
                 rpc_name \
                 + " - ERROR - plugin (" + plugin_uuid + ") - " + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(str(err))
+            w_msg = WM.WampError(message=message, req_id=req_id)
 
             return w_msg.serialize()
 

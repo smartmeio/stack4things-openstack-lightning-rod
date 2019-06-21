@@ -42,7 +42,13 @@ class NetworkManager(Module.Module):
     def restore(self):
         pass
 
-    async def Create_VIF(self, req_id, r_tcp_port):
+    # LONG
+    async def Create_VIF(self, req, r_tcp_port, parameters=None):
+        req_id = req['uuid']
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         LOG.info("Creation of the VIF ")
 
@@ -75,17 +81,23 @@ class NetworkManager(Module.Module):
             global interface
             interface = 'iotronic' + str(inter_num)
             message = 'WS tun and SOCAT created'
-            w_msg = WM.WampSuccess(message)
+            w_msg = WM.WampSuccess(message=message, req_id=req_id)
 
         except Exception:
 
             LOG.error('Error while creating the virtual interface')
             message = 'Error while the creation'
-            w_msg = WM.WampError(message)
+            w_msg = WM.WampError(message=message, req_id=req_id)
 
         return w_msg.serialize()
 
-    async def Configure_VIF(self, req_id, port, cidr):
+    # LONG
+    async def Configure_VIF(self, req, port, cidr, parameters=None):
+        req_id = req['uuid']
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         LOG.info("Configuration of the VIF")
 
@@ -107,7 +119,7 @@ class NetworkManager(Module.Module):
                                   stderr=subprocess.STDOUT)
 
             message = 'IP address assigned'
-            w_msg = WM.WampSuccess(message)
+            w_msg = WM.WampSuccess(message=message, req_id=req_id)
 
             LOG.info("Configuration succeded")
 
@@ -115,11 +127,17 @@ class NetworkManager(Module.Module):
 
             LOG.error(str(e))
             message = 'Error while the configuration'
-            w_msg = WM.WampError(message)
+            w_msg = WM.WampError(message=message, req_id=req_id)
 
         return w_msg.serialize()
 
-    async def Remove_VIF(self, req_id, VIF_name):
+    # LONG
+    async def Remove_VIF(self, req, VIF_name, parameters=None):
+        req_id = req['uuid']
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         LOG.info("Removing a VIF from the board")
 
@@ -139,13 +157,13 @@ class NetworkManager(Module.Module):
             Port.remove(inter_num)
 
             message = 'VIF removed'
-            w_msg = WM.WampSuccess(message)
+            w_msg = WM.WampSuccess(message=message, req_id=req_id)
 
             LOG.info("VIF removed")
         except Exception as e:
 
             LOG.error(str(e))
             message = 'Error while removing the VIF'
-            w_msg = WM.WampError(message)
+            w_msg = WM.WampError(message=message, req_id=req_id)
 
         return w_msg.serialize()

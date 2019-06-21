@@ -27,9 +27,11 @@ import sys
 import threading
 import time
 
+from iotronic_lightningrod.common import utils
 from iotronic_lightningrod.config import entry_points_name
 from iotronic_lightningrod.modules import Module
 from iotronic_lightningrod.modules import utils as lr_utils
+
 
 from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
@@ -48,7 +50,13 @@ class Utility(Module.Module):
     def restore(self):
         pass
 
-    async def hello(self, client_name, message):
+    async def hello(self, req_id, client_name, message, parameters=None):
+
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
+
         import random
         s = random.uniform(0.5, 3.0)
         await asyncio.sleep(s)
@@ -58,7 +66,14 @@ class Utility(Module.Module):
 
         return result
 
-    async def plug_and_play(self, new_module, new_class):
+    async def plug_and_play(self, req_id, new_module, new_class,
+                            parameters=None):
+
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
+
         LOG.info("LR modules loaded:\n\t" + new_module)
 
         # Updating entry_points
@@ -84,7 +99,11 @@ class Utility(Module.Module):
 
         return str(named_objects)
 
-    async def changeConf(self, conf):
+    async def changeConf(self, req_id, conf, parameters=None):
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         await self.board.getConf(conf)
 
@@ -95,7 +114,12 @@ class Utility(Module.Module):
 
         return result
 
-    async def destroyNode(self, conf):
+    async def destroyNode(self, req_id, conf, parameters=None):
+
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         await self.board.setConf(conf)
 

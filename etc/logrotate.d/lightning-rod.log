@@ -1,4 +1,5 @@
-/var/log/iotronic/lightning-rod.log /var/log/wstun/wstun.log{
+#/var/log/iotronic/lightning-rod.log
+/var/log/wstun/wstun.log{
     copytruncate
     missingok
     weekly

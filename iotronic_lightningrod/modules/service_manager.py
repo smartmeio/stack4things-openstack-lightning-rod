@@ -784,7 +784,7 @@ class ServiceManager(Module.Module):
                     WS_LIST['services'][s_uuid]['pid'] = wstun.pid
                     WS_LIST['services'][s_uuid]['updated_at'] = \
                         datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')
-                    print("(add)------> WS_LIST: " + str(WS_LIST))
+                    print("(add)--> WS_LIST: " + str(WS_LIST))
                 except Exception as err:
                     LOG.error("Error WS_LIST: " + str(err))
 
@@ -866,7 +866,7 @@ class ServiceManager(Module.Module):
             WS_LIST['services'][s_uuid]['pid'] = wstun.pid
             WS_LIST['services'][s_uuid]['updated_at'] = \
                 datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')
-            print("(add)------> WS_LIST: " + str(WS_LIST))
+            print("(add)--> WS_LIST: " + str(WS_LIST))
 
             wsmon = Thread(
                 target=self._wstunMon,
@@ -918,19 +918,25 @@ class ServiceManager(Module.Module):
                 'cp ' + s_conf_FILE + ' ' + s_conf_FILE + '.bkp'
             )
 
-    async def ServicesStatus(self, req_id):
+    # SC
+    async def ServicesStatus(self, req, parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
-        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         thr_list = str(threading.enumerate())
-        # print(thr_list + "\n" + str(WS_MON_LIST))
 
-        w_msg = WM.WampSuccess(thr_list)
+        w_msg = WM.WampSuccess(message=thr_list, req_id=req_id)
 
         return w_msg.serialize()
 
-    async def ServiceEnable(self, req_id, service, public_port):
+    # SC
+    async def ServiceEnable(self, req, service, public_port,
+                            parameters=None):
 
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
 
         service_name = service['name']
@@ -940,6 +946,9 @@ class ServiceManager(Module.Module):
         LOG.info("RPC " + rpc_name
                  + " CALLED [req_id: " + str(req_id) + "] for '" + service_name
                  + "' (" + s_uuid + ") service:")
+
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         try:
 
@@ -962,7 +971,7 @@ class ServiceManager(Module.Module):
                               + "backup is not restorable!"
 
                     LOG.error(" --> " + message)
-                    w_msg = WM.WampError(message)
+                    w_msg = WM.WampError(message=message, req_id=req_id)
 
                 else:
 
@@ -998,24 +1007,25 @@ class ServiceManager(Module.Module):
 
                     LOG.info(" - " + message + " with PID " + str(service_pid))
 
-                    w_msg = WM.WampSuccess(message)
+                    w_msg = WM.WampSuccess(message=message, req_id=req_id)
 
             else:
                 message = "Error spawning '" + str(service_name) \
                           + "' service tunnel!"
                 LOG.error(" - " + message)
-                w_msg = WM.WampError(message)
+                w_msg = WM.WampError(message=message, req_id=req_id)
 
         except Exception as err:
             message = "Error exposing " + str(service_name) \
                       + " service: " + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(message)
+            w_msg = WM.WampError(message=message, req_id=req_id)
 
         return w_msg.serialize()
 
-    async def ServiceDisable(self, req_id, service):
-
+    # SC
+    async def ServiceDisable(self, req, service, parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
 
         service_name = service['name']
@@ -1024,6 +1034,9 @@ class ServiceManager(Module.Module):
         LOG.info("RPC " + rpc_name
                  + " CALLED [req_id: " + str(req_id) + "] for '" + service_name
                  + "' (" + s_uuid + ") service:")
+
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
         # Remove from services.json file
         try:
@@ -1038,7 +1051,7 @@ class ServiceManager(Module.Module):
                 message = "Error loading services.json file: " \
                           + "backup is not restorable!"
                 LOG.error(" --> " + message)
-                w_msg = WM.WampError(message)
+                w_msg = WM.WampError(message=message, req_id=req_id)
 
             else:
 
@@ -1080,7 +1093,7 @@ class ServiceManager(Module.Module):
 
                         global WS_LIST
                         del WS_LIST['services'][s_uuid]
-                        print("(del)------> WS_LIST: " + str(WS_LIST))
+                        print("(del)--> WS_LIST: " + str(WS_LIST))
 
                         LOG.info(" - " + message)
 
@@ -1088,7 +1101,7 @@ class ServiceManager(Module.Module):
                         if not lightningrod.zombie_alert:
                             lightningrod.zombie_alert = True
 
-                        w_msg = WM.WampSuccess(message)
+                        w_msg = WM.WampSuccess(message=message, req_id=req_id)
 
                     except Exception as err:
                         if err.errno == errno.ESRCH:  # No such process
@@ -1108,7 +1121,9 @@ class ServiceManager(Module.Module):
                             if not lightningrod.zombie_alert:
                                 lightningrod.zombie_alert = True
 
-                            w_msg = WM.WampWarning(message)
+                            w_msg = WM.WampWarning(
+                                message=message, req_id=req_id
+                            )
 
                         else:
 
@@ -1120,23 +1135,27 @@ class ServiceManager(Module.Module):
                             if not lightningrod.zombie_alert:
                                 lightningrod.zombie_alert = True
 
-                            w_msg = WM.WampError(message)
+                            w_msg = WM.WampError(
+                                message=message, req_id=req_id
+                            )
 
                 else:
                     message = rpc_name + " result:  " + s_uuid \
                         + " already removed!"
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(message)
+                    w_msg = WM.WampError(message=message, req_id=req_id)
 
         except Exception as err:
             message = "Updating services.json error: " + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(message)
+            w_msg = WM.WampError(message=message, req_id=req_id)
 
         return w_msg.serialize()
 
-    async def ServiceRestore(self, req_id, service, public_port):
-
+    # SC
+    async def ServiceRestore(self, req, service, public_port,
+                             parameters=None):
+        req_id = req['uuid']
         rpc_name = utils.getFuncName()
 
         service_name = service['name']
@@ -1146,6 +1165,9 @@ class ServiceManager(Module.Module):
                  + " CALLED [req_id: " + str(req_id) + "] for '" + service_name
                  + "' (" + s_uuid + ") service:")
 
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
+
         # Load services.json configuration file
         s_conf = self._loadServicesConf()
 
@@ -1154,7 +1176,7 @@ class ServiceManager(Module.Module):
             message = "Error loading services.json file: " \
                       + "backup is not restorable!"
             LOG.error(" --> " + message)
-            w_msg = WM.WampError(message)
+            w_msg = WM.WampError(message=message, req_id=req_id)
 
         else:
 
@@ -1224,7 +1246,7 @@ class ServiceManager(Module.Module):
                         if not lightningrod.zombie_alert:
                             lightningrod.zombie_alert = True
 
-                        w_msg = WM.WampSuccess(message)
+                        w_msg = WM.WampSuccess(message=message, req_id=req_id)
 
                     else:
                         message = "Error spawning " + str(service_name) \
@@ -1235,13 +1257,13 @@ class ServiceManager(Module.Module):
                         if not lightningrod.zombie_alert:
                             lightningrod.zombie_alert = True
 
-                        w_msg = WM.WampError(message)
+                        w_msg = WM.WampError(message=message, req_id=req_id)
 
                 except Exception as err:
                     message = "Error restoring '" + str(service_name) \
                               + "' service tunnel: " + str(err)
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(message)
+                    w_msg = WM.WampError(message=message, req_id=req_id)
 
             else:
 
@@ -1279,13 +1301,13 @@ class ServiceManager(Module.Module):
                               + str(public_port) + " on " + self.wstun_ip
                     LOG.info(" - " + message + " with PID " + str(service_pid))
 
-                    w_msg = WM.WampSuccess(message)
+                    w_msg = WM.WampSuccess(message=message, req_id=req_id)
 
                 else:
                     message = "Error spawning " + str(service_name) \
                               + " service tunnel!"
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(message)
+                    w_msg = WM.WampError(message=message, req_id=req_id)
 
         return w_msg.serialize()
 

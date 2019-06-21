@@ -141,6 +141,14 @@ class RestManager(Module.Module):
                 if service_list == "":
                     service_list = "no services exposed!"
 
+                lr_cty = "N/A"
+                from iotronic_lightningrod.lightningrod import wport
+                sock_bundle = lr_utils.get_socket_info(wport)
+
+                if sock_bundle != "N/A":
+                    lr_cty = sock_bundle[2] + " - " + sock_bundle[0] \
+                        + " - " + sock_bundle[1]
+
                 info = {
                     'board_id': board.uuid,
                     'board_name': board.name,
@@ -152,6 +160,8 @@ class RestManager(Module.Module):
                     'board_reg_status': str(board.status),
                     'iotronic_status': str(iotronic_status(board.status)),
                     'service_list': str(service_list),
+                    'serial_dev': device_manager.getSerialDevice(),
+                    'nic': lr_cty,
                     'lr_version': str(
                         utils.get_version("iotronic-lightningrod")
                     )
@@ -176,9 +186,7 @@ class RestManager(Module.Module):
         def network():
             if 'username' in f_session:
                 info = {
-                    'ifconfig': device_manager.getIfconfig().replace(
-                        '\n', '<br>'
-                    )
+                    'ifconfig': device_manager.getIfconfig()
                 }
                 return render_template('network.html', **info)
             else:
