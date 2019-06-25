@@ -29,10 +29,11 @@ def deserialize(received):
 
 
 class WampMessage(object):
-    def __init__(self, message, result, req_id):
+    def __init__(self, message, result, req_id=None):
         self.message = message
         self.result = result
-        self.req_id = req_id
+        if req_id != None:
+            self.req_id = req_id
 
     def serialize(self):
         return json.dumps(self, default=lambda o: o.__dict__)
