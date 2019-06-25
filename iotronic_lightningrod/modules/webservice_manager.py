@@ -189,10 +189,10 @@ class WebServiceManager(Module.Module):
         if(response['result'] == "SUCCESS"):
             message = "Webservice '" + service_dns + "' successfully exposed!"
             LOG.info("--> " + str(message))
-            w_msg = WM.WampSuccess(message=response, req_id=req_id)
+            w_msg = WM.WampSuccess(msg=response, req_id=req_id)
         else:
             LOG.warning("--> " + str(response['message']))
-            w_msg = WM.WampWarning(message=response, req_id=req_id)
+            w_msg = WM.WampWarning(msg=response, req_id=req_id)
 
         return w_msg.serialize()
 
@@ -211,10 +211,10 @@ class WebServiceManager(Module.Module):
 
         if (response['result'] == "SUCCESS"):
             LOG.info("--> " + str(response['message']))
-            w_msg = WM.WampSuccess(message=response, req_id=req_id)
+            w_msg = WM.WampSuccess(msg=response, req_id=req_id)
         else:
             LOG.warning("--> " + str(response['message']))
-            w_msg = WM.WampWarning(message=response, req_id=req_id)
+            w_msg = WM.WampWarning(msg=response, req_id=req_id)
 
         return w_msg.serialize()
 
@@ -231,7 +231,7 @@ class WebServiceManager(Module.Module):
             board_dns,
             owner_email
         )
-        w_msg = WM.WampSuccess(message=message, req_id=req_id)
+        w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
         return w_msg.serialize()
 
@@ -245,6 +245,6 @@ class WebServiceManager(Module.Module):
 
         message = self.board.proxy._proxyDisableWebService()
 
-        w_msg = WM.WampSuccess(message=message, req_id=req_id)
+        w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
         return w_msg.serialize()

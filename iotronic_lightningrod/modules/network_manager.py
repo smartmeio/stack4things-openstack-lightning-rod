@@ -81,13 +81,13 @@ class NetworkManager(Module.Module):
             global interface
             interface = 'iotronic' + str(inter_num)
             message = 'WS tun and SOCAT created'
-            w_msg = WM.WampSuccess(message=message, req_id=req_id)
+            w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
         except Exception:
 
             LOG.error('Error while creating the virtual interface')
             message = 'Error while the creation'
-            w_msg = WM.WampError(message=message, req_id=req_id)
+            w_msg = WM.WampError(msg=message, req_id=req_id)
 
         return w_msg.serialize()
 
@@ -119,7 +119,7 @@ class NetworkManager(Module.Module):
                                   stderr=subprocess.STDOUT)
 
             message = 'IP address assigned'
-            w_msg = WM.WampSuccess(message=message, req_id=req_id)
+            w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
             LOG.info("Configuration succeded")
 
@@ -127,7 +127,7 @@ class NetworkManager(Module.Module):
 
             LOG.error(str(e))
             message = 'Error while the configuration'
-            w_msg = WM.WampError(message=message, req_id=req_id)
+            w_msg = WM.WampError(msg=message, req_id=req_id)
 
         return w_msg.serialize()
 
@@ -157,13 +157,13 @@ class NetworkManager(Module.Module):
             Port.remove(inter_num)
 
             message = 'VIF removed'
-            w_msg = WM.WampSuccess(message=message, req_id=req_id)
+            w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
             LOG.info("VIF removed")
         except Exception as e:
 
             LOG.error(str(e))
             message = 'Error while removing the VIF'
-            w_msg = WM.WampError(message=message, req_id=req_id)
+            w_msg = WM.WampError(msg=message, req_id=req_id)
 
         return w_msg.serialize()

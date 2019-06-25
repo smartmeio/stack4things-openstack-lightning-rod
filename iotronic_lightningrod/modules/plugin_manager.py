@@ -388,7 +388,7 @@ class PluginManager(Module.Module):
                     message = "ALREADY STARTED!"
                     LOG.warning(" - Plugin "
                                 + plugin_uuid + " already started!")
-                    w_msg = WM.WampError(message=message, req_id=req_id)
+                    w_msg = WM.WampError(msg=message, req_id=req_id)
 
                 else:
 
@@ -443,27 +443,27 @@ class PluginManager(Module.Module):
 
                         response = "STARTED"
                         LOG.info(" - " + worker.complete(rpc_name, response))
-                        w_msg = WM.WampSuccess(message=response, req_id=req_id)
+                        w_msg = WM.WampSuccess(msg=response, req_id=req_id)
 
                     else:
                         message = \
                             rpc_name + " - ERROR " \
                             + plugin_filename + " does not exist!"
                         LOG.error(" - " + message)
-                        w_msg = WM.WampError(message=message, req_id=req_id)
+                        w_msg = WM.WampError(msg=message, req_id=req_id)
 
             else:
                 message = "Plugin " + plugin_uuid \
                           + " does not exist in this board!"
                 LOG.warning(" - " + message)
-                w_msg = WM.WampError(message=message, req_id=req_id)
+                w_msg = WM.WampError(msg=message, req_id=req_id)
 
         except Exception as err:
             message = \
                 rpc_name + " - ERROR - plugin (" + plugin_uuid + ") - " \
                 + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(message=str(err), req_id=req_id)
+            w_msg = WM.WampError(msg=str(err), req_id=req_id)
 
             return w_msg.serialize()
 
@@ -509,7 +509,7 @@ class PluginManager(Module.Module):
 
                     message = "STOPPED"
                     LOG.info(" - " + worker.complete(rpc_name, message))
-                    w_msg = WM.WampSuccess(message=message, req_id=req_id)
+                    w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
                 else:
                     message = \
@@ -517,21 +517,21 @@ class PluginManager(Module.Module):
                         + " - ERROR - plugin (" + plugin_uuid \
                         + ") is instantiated but is not running anymore!"
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(message=message, req_id=req_id)
+                    w_msg = WM.WampError(msg=message, req_id=req_id)
 
             else:
                 message = \
                     rpc_name + " - WARNING " \
                     + plugin_uuid + "  is not running!"
                 LOG.warning(" - " + message)
-                w_msg = WM.WampWarning(message=message, req_id=req_id)
+                w_msg = WM.WampWarning(msg=message, req_id=req_id)
 
         except Exception as err:
             message = \
                 rpc_name \
                 + " - ERROR - plugin (" + plugin_uuid + ") - " + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(message=str(err), req_id=req_id)
+            w_msg = WM.WampError(msg=str(err), req_id=req_id)
 
             return w_msg.serialize()
 
@@ -562,7 +562,7 @@ class PluginManager(Module.Module):
 
                 message = "Plugin " + plugin_uuid + " already started!"
                 LOG.warning(" - " + message)
-                w_msg = WM.WampWarning(message=message, req_id=req_id)
+                w_msg = WM.WampWarning(msg=message, req_id=req_id)
 
             else:
 
@@ -593,7 +593,7 @@ class PluginManager(Module.Module):
                         message = "Error importing plugin " \
                                   + plugin_filename + ": " + str(err)
                         LOG.error(" - " + message)
-                        w_msg = WM.WampError(message=str(err), req_id=req_id)
+                        w_msg = WM.WampError(msg=str(err), req_id=req_id)
 
                         return w_msg.serialize()
 
@@ -631,13 +631,13 @@ class PluginManager(Module.Module):
                         response = q_result.get()
 
                         LOG.info(" - " + worker.complete(rpc_name, response))
-                        w_msg = WM.WampSuccess(message=response, req_id=req_id)
+                        w_msg = WM.WampSuccess(msg=response, req_id=req_id)
 
                     except Exception as err:
                         message = "Error spawning plugin " \
                                   + plugin_filename + ": " + str(err)
                         LOG.error(" - " + message)
-                        w_msg = WM.WampError(message=str(err), req_id=req_id)
+                        w_msg = WM.WampError(msg=str(err), req_id=req_id)
 
                         return w_msg.serialize()
 
@@ -646,14 +646,14 @@ class PluginManager(Module.Module):
                         rpc_name \
                         + " - ERROR " + plugin_filename + " does not exist!"
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(message=message, req_id=req_id)
+                    w_msg = WM.WampError(msg=message, req_id=req_id)
 
         except Exception as err:
             message = \
                 rpc_name \
                 + " - ERROR - plugin (" + plugin_uuid + ") - " + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(message=message, req_id=req_id)
+            w_msg = WM.WampError(msg=message, req_id=req_id)
 
             return w_msg.serialize()
 
@@ -684,7 +684,7 @@ class PluginManager(Module.Module):
 
             message = "Plugin paths or files do not exist!"
             LOG.error(message)
-            w_msg = WM.WampError(message=message, req_id=req_id)
+            w_msg = WM.WampError(msg=message, req_id=req_id)
 
             return w_msg.serialize()
 
@@ -706,7 +706,7 @@ class PluginManager(Module.Module):
                     message = "Removing plugin's files error in " \
                               + plugin_path + ": " + str(err)
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(message=message, req_id=req_id)
+                    w_msg = WM.WampError(msg=message, req_id=req_id)
 
                     return w_msg.serialize()
 
@@ -744,21 +744,21 @@ class PluginManager(Module.Module):
                                   + plugin_uuid + " already removed!"
                         LOG.warning(" - " + message)
 
-                    w_msg = WM.WampSuccess(message=message, req_id=req_id)
+                    w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
                     return w_msg.serialize()
 
                 except Exception as err:
                     message = "Updating plugins.json error: " + str(err)
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(message=message, req_id=req_id)
+                    w_msg = WM.WampError(msg=message, req_id=req_id)
 
                     return w_msg.serialize()
 
             except Exception as err:
                 message = "Plugin removing error: {0}".format(err)
                 LOG.error(" - " + message)
-                w_msg = WM.WampError(message=message, req_id=req_id)
+                w_msg = WM.WampError(msg=message, req_id=req_id)
 
                 return w_msg.serialize()
 
@@ -852,18 +852,18 @@ class PluginManager(Module.Module):
 
                     message = "REBOOTED"
                     LOG.info(" - " + worker.complete(rpc_name, message))
-                    w_msg = WM.WampSuccess(message=message, req_id=req_id)
+                    w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
                 else:
                     message = "ERROR '" + plugin_filename + "' does not exist!"
                     LOG.error(" - " + message)
-                    w_msg = WM.WampError(message=message, req_id=req_id)
+                    w_msg = WM.WampError(msg=message, req_id=req_id)
 
         except Exception as err:
             message = "Error rebooting plugin '" \
                       + plugin_uuid + "': " + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(message=message, req_id=req_id)
+            w_msg = WM.WampError(msg=message, req_id=req_id)
 
             return w_msg.serialize()
 
@@ -899,20 +899,20 @@ class PluginManager(Module.Module):
                     result = "DEAD"
 
                 LOG.info(" - " + worker.complete(rpc_name, result))
-                w_msg = WM.WampSuccess(message=result, req_id=req_id)
+                w_msg = WM.WampSuccess(msg=result, req_id=req_id)
 
             else:
                 result = "DEAD"
                 LOG.info(" - " + rpc_name + " result for "
                          + plugin_uuid + ": " + result)
-                w_msg = WM.WampSuccess(message=result, req_id=req_id)
+                w_msg = WM.WampSuccess(msg=result, req_id=req_id)
 
         except Exception as err:
             message = \
                 rpc_name \
                 + " - ERROR - plugin (" + plugin_uuid + ") - " + str(err)
             LOG.error(" - " + message)
-            w_msg = WM.WampError(message=message, req_id=req_id)
+            w_msg = WM.WampError(msg=message, req_id=req_id)
 
             return w_msg.serialize()
 
