@@ -17,7 +17,7 @@ RUN sed -i 's/# server_names_hash_bucket_size 64;/server_names_hash_bucket_size 
 
 RUN rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g --unsafe @mdslab/wstun@1.0.10 && npm cache --force clean
+RUN npm install -g --unsafe @mdslab/wstun@1.0.11 && npm cache --force clean
 
 RUN pip3 install iotronic-lightningrod
 
@@ -26,6 +26,7 @@ RUN sed -i "s|80 default_server;|50000 default_server;|g" /etc/nginx/sites-avail
 
 COPY data/lr_configure /usr/local/bin/lr_configure
 COPY data/lr_install /usr/local/bin/lr_install
+COPY data/lr_checks /usr/local/bin/lr_checks
 COPY data/startLR /usr/local/bin/startLR
 
 RUN /usr/local/bin/lr_install

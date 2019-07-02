@@ -1142,8 +1142,8 @@ class ServiceManager(Module.Module):
                 else:
                     message = rpc_name + " result:  " + s_uuid \
                         + " already removed!"
-                    LOG.error(" - " + message)
-                    w_msg = WM.WampError(msg=message, req_id=req_id)
+                    LOG.warning(" - " + message)
+                    w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
         except Exception as err:
             message = "Updating services.json error: " + str(err)

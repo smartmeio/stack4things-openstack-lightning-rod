@@ -1,0 +1,68 @@
+#!/usr/bin/python3
+
+# lr_checks v1.0.1
+
+import psutil
+import subprocess
+
+start_checks=True
+
+print(
+        "\n###############################\n"
+        "  Lightning-rod checks v1.0.1\n"
+        "###############################\n")
+
+""" CONNECTIONS """
+try:
+        res_pid = subprocess.Popen("ps aux | grep '/bin/lightning-rod' |grep -v grep|  awk '{print $2}'", shell=True, stdout=subprocess.PIPE)
+        lr_pid = res_pid.communicate()[0].decode("utf-8").split("\n")[0]
+        if(lr_pid == ""):
+                start_checks = False
+                print(" - LR not running")
+        else:
+                print("\nLR PID: " + str(lr_pid))
+
+except Exception as e:
+        print("LR pid error: " + str(e))
+        start_checks = False
+
+
+if start_checks:
+
+        lr_socket = None
+        proc = psutil.Process(int(lr_pid))
+        conn_list = proc.connections()
+        #print(str(conn_list))
+        print("\nLR open connections:")
+        check=False
+        for socks in conn_list:
+                print(" - " + str(socks))
+                #print(socks.raddr, socks.fd)
+                if socks.raddr != () :
+                        if socks.raddr.port == 8181:
+                                #print(socks.raddr.port, socks.fd)
+                                #break;
+                                check=True
+                                lr_socket = [socks.raddr.port, socks.fd]
+
+        if check:
+                print("\nLR WAMP socket:" + " port[" +str(lr_socket[0]) + "] - FD[" + str(lr_socket[1]) + "]")
+
+
+        """ LSOF """
+        res_lsof = subprocess.Popen("lsof -i -n -P | grep '8080\|8181'| grep -v grep", shell=True, stdout=subprocess.PIPE)
+        sockets = res_lsof.communicate()[0].decode("utf-8").split("\n")
+        print("\nS4T sockets opened: ")
+
+        for socks in sockets[:-1]:
+                print(" - " + str(socks))
+
+
+
+        """ PS """
+        res_ps = subprocess.Popen("ps aux | grep 'wstun\|lightning' | grep -v grep", shell=True, stdout=subprocess.PIPE)
+        ps_s4t = res_ps.communicate()[0].decode("utf-8").split("\n")
+        print("\nS4T running processes: ")
+
+        for socks in ps_s4t[:-1]:
+                print(" - " + str(socks))
