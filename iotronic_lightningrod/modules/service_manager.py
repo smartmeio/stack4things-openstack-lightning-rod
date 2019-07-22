@@ -1319,20 +1319,27 @@ def get_zombies():
     return nzombies
 
 
-def services_list():
+def services_list(format_l="list"):
 
     try:
-
-        s_list = ""
 
         with open(s_conf_FILE) as settings:
             s_conf = json.load(settings)
 
-        for s_uuid in s_conf['services']:
-            s_service = str(s_conf['services'][s_uuid]['name']) \
-                + " - " + str(s_conf['services'][s_uuid]['public_port']) \
-                + " - " + str(s_conf['services'][s_uuid]['local_port'])
-            s_list = s_list + "<li>" + s_service + "</li>"
+        if format_l == "html":
+            s_list = ""
+            for s_uuid in s_conf['services']:
+                s_service = str(s_conf['services'][s_uuid]['name']) \
+                    + " - " + str(s_conf['services'][s_uuid]['public_port']) \
+                    + " - " + str(s_conf['services'][s_uuid]['local_port'])
+                s_list = s_list + "<li>" + s_service + "</li>"
+        else:
+            s_list = []
+            for s_uuid in s_conf['services']:
+                s_service = str(s_conf['services'][s_uuid]['name']) \
+                    + " - " + str(s_conf['services'][s_uuid]['public_port']) \
+                    + " - " + str(s_conf['services'][s_uuid]['local_port'])
+                s_list.append(s_service)
 
     except Exception as err:
         LOG.error("Error getting services list: " + str(err))

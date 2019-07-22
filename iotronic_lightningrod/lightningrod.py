@@ -789,7 +789,6 @@ def wampConnect(wamp_conf):
                 LOG.warning("WAMP Connection Failure timer: EXPIRED")
                 lr_utils.LR_restart()
 
-            # global connFailure  # da valutare la rimozione
             connFailure = Timer(CONF.connection_failure_timer, timeout)
             connFailure.start()
             LOG.warning("WAMP Connection Failure timer: STARTED")

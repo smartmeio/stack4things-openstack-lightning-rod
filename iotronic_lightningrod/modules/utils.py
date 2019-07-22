@@ -19,6 +19,7 @@ import asyncio
 import pkg_resources
 from six import moves
 from stevedore import extension
+from threading import Timer
 
 import os
 import psutil
@@ -35,6 +36,9 @@ from iotronic_lightningrod.modules import utils as lr_utils
 
 from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
+
+global connFailureRecovery
+connFailureRecovery = None
 
 
 class Utility(Module.Module):
@@ -185,6 +189,21 @@ def destroyWampSocket():
 
     LR_PID = os.getpid()
 
+    global connFailureRecovery
+    if connFailureRecovery != None:
+        LOG.info(
+            "WAMP Connection Recovery timer: CLEANED."
+        )
+        connFailureRecovery.cancel()
+
+    def timeout():
+        LOG.warning("WAMP Connection Recovery timer: EXPIRED")
+        lr_utils.LR_restart()
+
+    connFailureRecovery = Timer(30, timeout)
+    connFailureRecovery.start()
+    LOG.warning("WAMP Connection Recovery timer: STARTED")
+
     try:
 
         process = subprocess.Popen(
@@ -226,6 +245,10 @@ def destroyWampSocket():
                     # WAMP connection found!
                     wamp_conn_set = True
                     # LOG.info("WAMP CONNECTION FOUND")
+                    LOG.info(
+                        "WAMP Connection Recovery timer: CANCELLED."
+                    )
+                    connFailureRecovery.cancel()
 
         if wamp_conn_set == False:
             LOG.warning("WAMP CONNECTION NOT FOUND: LR restarting...")
