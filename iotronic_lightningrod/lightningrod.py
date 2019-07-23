@@ -102,7 +102,13 @@ zombie_alert = True
 global loop
 loop = None
 component = None
-txaio.start_logging(level="info")
+
+# Autobahn log level
+if CONF.debug:
+    txaio.start_logging(level="debug")
+else:
+    txaio.start_logging(level="info")
+
 RUNNER = None
 connected = False
 
