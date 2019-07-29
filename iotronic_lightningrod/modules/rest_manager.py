@@ -401,15 +401,15 @@ class RestManager(Module.Module):
                 print("--> NGINX settings deleted.")
 
                 # delete letsencrypt
-                os.system("rm -r /etc/letsencrypt")
+                os.system("rm -r /etc/letsencrypt/*")
                 print("--> LetsEncrypt settings deleted.")
 
                 # delete var-iotronic
-                os.system("rm -r /var/lib/iotronic")
+                os.system("rm -r /var/lib/iotronic/*")
                 print("--> Iotronic data deleted.")
 
                 # delete etc-iotronic
-                os.system("rm -r /etc/iotronic")
+                os.system("rm -r /etc/iotronic/*")
                 print("--> Iotronic settings deleted.")
 
                 # exec lr_install

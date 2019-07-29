@@ -48,15 +48,30 @@ import iotronic_lightningrod.wampmessage as WM
 # Global variables
 LOG = logging.getLogger(__name__)
 
+CONF = cfg.CONF
 
+# LR options
 lr_opts = [
     cfg.StrOpt('lightningrod_home',
                default='/var/lib/iotronic',
-               help=('Lightning-rod Home Data')),
+               help=('Lightning-rod Home Data')
+               ),
     cfg.BoolOpt('skip_cert_verify',
                 default=True,
                 help=('Flag for skipping the verification of the server cert '
-                      '(for the auto-signed ones)')),
+                      '(for the auto-signed ones)')
+                ),
+    cfg.StrOpt('log_level',
+               default='info',
+               help=('Lightning-rod log level')
+               ),
+]
+
+CONF.register_opts(lr_opts)
+
+
+# Autobahn options
+autobahn_opts = [
     cfg.IntOpt('connection_timer',
                default=10,
                help=('IoTronic connection RPC timer')),
@@ -71,8 +86,23 @@ lr_opts = [
                help=('IoTronic connection failure timer')),
 ]
 
-CONF = cfg.CONF
-CONF.register_opts(lr_opts)
+autobahn_group = cfg.OptGroup(
+    name='autobahn', title='Autobahn options'
+)
+CONF.register_group(autobahn_group)
+CONF.register_opts(autobahn_opts, group=autobahn_group)
+
+
+# Options registration
+logging.register_options(CONF)
+DOMAIN = "s4t-lightning-rod"
+CONF(project='iotronic')
+logging.setup(CONF, DOMAIN)
+
+
+# Logging setup
+txaio.start_logging(level=str(CONF.log_level))
+
 
 global SESSION
 SESSION = None
@@ -103,12 +133,6 @@ global loop
 loop = None
 component = None
 
-# Autobahn log level
-if CONF.debug:
-    txaio.start_logging(level="debug")
-else:
-    txaio.start_logging(level="info")
-
 RUNNER = None
 connected = False
 
@@ -120,6 +144,7 @@ class LightningRod(object):
 
     def __init__(self):
 
+        """
         LogoLR()
 
         LOG.info(' - version: ' +
@@ -135,67 +160,74 @@ class LightningRod(object):
         CONF(project='iotronic')
         logging.setup(CONF, DOMAIN)
 
+        if CONF.debug:
+            txaio.start_logging(level="debug")
+        """
+
         self.w = None
 
-        if (utils.checkIotronicConf(CONF)):
+        # Manage LR exit signals
+        signal.signal(signal.SIGINT, self.stop_handler)
 
-            if CONF.debug:
-                txaio.start_logging(level="debug")
+        LogoLR()
 
-            # Manage LR exit signals
-            signal.signal(signal.SIGINT, self.stop_handler)
+        LOG.info('Lightning-rod: ')
+        LOG.info(' - version: ' +
+                 str(utils.get_version("iotronic-lightningrod")))
+        LOG.info(' - PID: ' + str(os.getpid()))
+        LOG.info(" - Home: " + CONF.lightningrod_home)
 
-            LogoLR()
-
-            LOG.info('Lightning-rod: ')
-            LOG.info(' - version: ' +
-                     str(utils.get_version("iotronic-lightningrod")))
-            LOG.info(' - PID: ' + str(os.getpid()))
-            LOG.info(' - Logs: ' + CONF.log_file)
-            LOG.info(" - Home: " + CONF.lightningrod_home)
-            LOG.info(" - Alive Check timer: " + str(CONF.alive_timer) +
-                     " seconds")
-            LOG.info(" - RPC-Alive Check timer: " + str(CONF.rpc_alive_timer) +
-                     " seconds")
-            LOG.info(" - Connection Faliure timeout: " + str(
-                CONF.connection_failure_timer) + " seconds")
-
-            global board
-            board = Board()
-
-            # Start REST server
-            singleModuleLoader("rest", session=None)
-
-            if(board.status == "first_boot"):
-
-                os.system("pkill -f 'node /usr/bin/wstun'")
-                LOG.debug("OLD tunnels cleaned!")
-                print("OLD tunnels cleaned!")
-
-                LOG.info("LR FIRST BOOT: waiting for first configuration...")
-
-            while (board.status == "first_boot"):
-                time.sleep(5)
-
-                # LR was configured and we have to load its new configuration
-                board.loadSettings()
-
-            # Start timer checks on wamp connection
-            def timeout():
-                LOG.warning("WAMP Connection failure timer onBoot: EXPIRED")
-                lr_utils.LR_restart()
-
-            global connFailureBoot
-            connFailureBoot = Timer(CONF.connection_failure_timer, timeout)
-            connFailureBoot.start()
-            LOG.info("WAMP Connection failure timer onBoot: STARTED")
-
-            # Start Wamp Manager
-            self.w = WampManager(board.wamp_config)
-            self.w.start()
-
+        if (CONF.log_file == "None"):
+            LOG.info(' - Log file: not specified!')
         else:
-            Bye()
+            LOG.info(' - Log file: ' + CONF.log_file)
+        LOG.info(" - Log level: " + str(CONF.log_level))
+
+        LOG.info('Autobahn: ')
+        LOG.info(" - Alive Check timer: " + str(CONF.autobahn.alive_timer) +
+                 " seconds")
+        LOG.info(" - RPC-Alive Check timer: "
+                 + str(CONF.autobahn.rpc_alive_timer) + " seconds")
+        LOG.info(" - Connection RPC timer: " + str(
+            CONF.autobahn.connection_timer) + " seconds")
+        LOG.info(" - Connection Faliure timeout: " + str(
+            CONF.autobahn.connection_failure_timer) + " seconds")
+
+        global board
+        board = Board()
+
+        # Start REST server
+        singleModuleLoader("rest", session=None)
+
+        if(board.status == "first_boot"):
+
+            os.system("pkill -f 'node /usr/bin/wstun'")
+            LOG.debug("OLD tunnels cleaned!")
+            print("OLD tunnels cleaned!")
+
+            LOG.info("LR FIRST BOOT: waiting for first configuration...")
+
+        while (board.status == "first_boot"):
+            time.sleep(5)
+
+            # LR was configured and we have to load its new configuration
+            board.loadSettings()
+
+        # Start timer checks on wamp connection
+        def timeout():
+            LOG.warning("WAMP Connection failure timer onBoot: EXPIRED")
+            lr_utils.LR_restart()
+
+        global connFailureBoot
+        connFailureBoot = Timer(
+            CONF.autobahn.connection_failure_timer, timeout
+        )
+        connFailureBoot.start()
+        LOG.info("WAMP Connection failure timer onBoot: STARTED")
+
+        # Start Wamp Manager
+        self.w = WampManager(board.wamp_config)
+        self.w.start()
 
     def stop_handler(self, signum, frame):
 
@@ -307,7 +339,8 @@ async def wamp_singleCheck(session):
 
         # LOG.debug("ALIVE sending...")
 
-        with timeoutALIVE(seconds=CONF.rpc_alive_timer, action="ws_alive"):
+        with timeoutALIVE(
+                seconds=CONF.autobahn.rpc_alive_timer, action="ws_alive"):
             res = await session.call(
                 str(board.agent) + u'.stack4things.wamp_alive',
                 board_uuid=board.uuid,
@@ -330,7 +363,8 @@ async def wamp_checks(session):
 
             # LOG.debug("ALIVE sending...")
 
-            with timeoutALIVE(seconds=CONF.rpc_alive_timer, action="ws_alive"):
+            with timeoutALIVE(
+                    seconds=CONF.autobahn.rpc_alive_timer, action="ws_alive"):
                 res = await session.call(
                     str(board.agent) + u'.stack4things.wamp_alive',
                     board_uuid=board.uuid,
@@ -349,7 +383,7 @@ async def wamp_checks(session):
             lr_utils.destroyWampSocket()
 
         try:
-            await asyncio.sleep(CONF.alive_timer)
+            await asyncio.sleep(CONF.autobahn.alive_timer)
         except Exception as e:
             LOG.warning(" - asyncio alert: " + str(e))
 
@@ -375,7 +409,7 @@ async def IotronicLogin(board, session, details):
 
         rpc = str(board.agent) + u'.stack4things.connection'
 
-        with timeoutRPC(seconds=CONF.connection_timer, action=rpc):
+        with timeoutRPC(seconds=CONF.autobahn.connection_timer, action=rpc):
             res = await session.call(
                 rpc,
                 uuid=board.uuid,
@@ -706,7 +740,9 @@ def wampConnect(wamp_conf):
 
                     rpc = str(board.agent) + u'.stack4things.connection'
 
-                    with timeoutRPC(seconds=CONF.connection_timer, action=rpc):
+                    with timeoutRPC(
+                            seconds=CONF.autobahn.connection_timer, action=rpc
+                    ):
                         res = await session.call(
                             rpc,
                             uuid=board.uuid,
@@ -784,7 +820,7 @@ def wampConnect(wamp_conf):
             LOG.warning("WAMP Connection Failure: " + str(fail_msg))
 
             LOG.warning(" - timeout set @ " +
-                        str(CONF.connection_failure_timer))
+                        str(CONF.autobahn.connection_failure_timer))
 
             global connFailure
             if connFailure != None:
@@ -795,7 +831,9 @@ def wampConnect(wamp_conf):
                 LOG.warning("WAMP Connection Failure timer: EXPIRED")
                 lr_utils.LR_restart()
 
-            connFailure = Timer(CONF.connection_failure_timer, timeout)
+            connFailure = Timer(
+                CONF.autobahn.connection_failure_timer, timeout
+            )
             connFailure.start()
             LOG.warning("WAMP Connection Failure timer: STARTED")
 

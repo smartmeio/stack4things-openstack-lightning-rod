@@ -31,12 +31,14 @@ def getFuncName():
 def checkIotronicConf(lr_CONF):
 
     try:
-        if(lr_CONF.log_file == None):
+
+        if(lr_CONF.log_file == "None"):
             LOG.warning("'log_file' is not specified!")
-            return False
         else:
             print("View logs in " + lr_CONF.log_file)
-            return True
+
+        return True
+
     except Exception as err:
         print(err)
         return False
