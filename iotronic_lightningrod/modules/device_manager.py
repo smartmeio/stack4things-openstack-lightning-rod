@@ -242,10 +242,12 @@ class DeviceManager(Module.Module):
 
         if (version != None) and (version != "latest") and (version != ""):
             LOG.info("--> version specified: " + str(version))
-            command = "pip3 install iotronic-lightningrod==" + str(version)
+            command = "pip3 install iotronic-lightningrod==" + str(version) \
+                      + " && lr_install"
         else:
             LOG.info("--> version not specified: set 'latest'")
-            command = "pip3 install --upgrade iotronic-lightningrod"
+            command = "pip3 install --upgrade " \
+                      + "iotronic-lightningrod && lr_install"
 
         print("\nUpgrading LR: " + str(command))
 

@@ -1,0 +1,10 @@
+#!/usr/bin/python3
+
+import json
+import requests
+
+r = requests.get(url = "http://localhost:1474/info")
+
+data = r.json()
+
+print(json.dumps(data, indent=4, sort_keys=True))
