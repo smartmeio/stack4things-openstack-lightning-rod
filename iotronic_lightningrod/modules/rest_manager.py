@@ -162,7 +162,7 @@ class RestManager(Module.Module):
                 )
             }
 
-            return str(info)
+            return info
 
         @app.route('/status')
         def status():

@@ -240,14 +240,23 @@ class DeviceManager(Module.Module):
         else:
             version = None  # latest
 
+        if 'update_conf' in parameters:
+            update_conf = parameters['update_conf']
+            if update_conf == "":
+                update_conf = False
+        else:
+            update_conf = False
+
         if (version != None) and (version != "latest") and (version != ""):
             LOG.info("--> version specified: " + str(version))
-            command = "pip3 install iotronic-lightningrod==" + str(version) \
-                      + " && lr_install"
+            command = "pip3 install iotronic-lightningrod==" + str(version)
         else:
             LOG.info("--> version not specified: set 'latest'")
-            command = "pip3 install --upgrade " \
-                      + "iotronic-lightningrod && lr_install"
+            command = "pip3 install --upgrade iotronic-lightningrod"
+
+        if update_conf:
+            LOG.info("--> overwrite iotronic.conf: True")
+            command = command + " && lr_install"
 
         print("\nUpgrading LR: " + str(command))
 
