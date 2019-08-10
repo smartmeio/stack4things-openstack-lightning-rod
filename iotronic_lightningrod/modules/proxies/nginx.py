@@ -260,18 +260,7 @@ class ProxyManager(Proxy.Proxy):
 
             # NGINX clean up
             try:
-
-                nginx_path = "/etc/nginx/conf.d/"
-
-                shutil.rmtree(
-                    nginx_path,
-                    ignore_errors=False,
-                    onerror=None
-                )
-                LOG.debug("--> nginx conf.d path deleted")
-
-                os.makedirs(nginx_path, mode=0o755)
-                LOG.debug("--> nginx conf.d path re-created")
+                os.system("rm -r /etc/nginx/conf.d/*")
 
             except Exception as err:
                 message = "Error removing nginx conf.d folder: " + str(err)
@@ -279,14 +268,7 @@ class ProxyManager(Proxy.Proxy):
 
             # Letsencrypt clean up
             try:
-
-                le_path = "/etc/letsencrypt/"
-
-                shutil.rmtree(
-                    le_path,
-                    ignore_errors=False,
-                    onerror=None
-                )
+                os.system("rm -r /etc/letsencrypt/*")
 
             except Exception as err:
                 message = "Error removing letsencrypt folder: " + str(err)
