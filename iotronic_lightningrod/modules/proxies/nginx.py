@@ -215,6 +215,9 @@ class ProxyManager(Proxy.Proxy):
                 location / {{
                     proxy_pass http://127.0.0.1:1474;
                 }}
+                location ~ /.well-known {{
+                    root /var/www/html;
+                }}
             }}
             '''.format(board_dns)
 
@@ -311,9 +314,12 @@ class ProxyManager(Proxy.Proxy):
                 proxy_set_header Upgrade $http_upgrade;
                 proxy_set_header Connection "upgrade";
 
-            location / {{
-            proxy_pass http://localhost:{1};
-            }}
+                location / {{
+                    proxy_pass http://localhost:{1};
+                }}
+                location ~ /.well-known {{
+                    root /var/www/html;
+                }}
             }}
             '''.format(service_dns, local_port)
 
