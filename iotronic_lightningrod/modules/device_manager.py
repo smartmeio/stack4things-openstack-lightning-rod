@@ -262,7 +262,7 @@ class DeviceManager(Module.Module):
             LOG.info("--> overwrite iotronic.conf: True")
             command = command + " && lr_install"
 
-        print("\nUpgrading LR: " + str(command))
+        LOG.info("--> command: " + str(command))
 
         def upgradingLR():
 
@@ -351,7 +351,12 @@ class DeviceManager(Module.Module):
         except Exception as err:
             LOG.error("Error in parameters: " + str(err))
 
-        w_msg = WM.WampRunning(msg="LR upgrading...", req_id=req_id)
+        if version == None:
+            version = "latest"
+
+        out_msg = "LR upgrading to " + str(version) + " version..."
+
+        w_msg = WM.WampRunning(msg=out_msg, req_id=req_id)
 
         return w_msg.serialize()
 
