@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN chmod -R 777 /tmp/
 
 RUN  apt-get update && apt-get install -y \
- software-properties-common socat dsniff git ntpdate python build-essential vim lsof gdb screen python3 python3-setuptools python3-pip npm net-tools
+ software-properties-common socat dsniff git ntpdate python build-essential vim lsof gdb screen python3 python3-setuptools python3-pip npm net-tools libffi-dev
 
 RUN add-apt-repository ppa:certbot/certbot
 

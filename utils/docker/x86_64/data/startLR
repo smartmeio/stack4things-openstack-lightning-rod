@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# Upgrade procedures
+TEST_U=`cat /etc/iotronic/iotronic.conf  | grep autobahn`
+
+if [ "$TEST_U" = "" ]; then
+	cp /usr/local/lib/python3.6/dist-packages/iotronic_lightningrod/etc/iotronic/iotronic.conf /etc/iotronic/iotronic.conf
+	echo "iotronic configuration updated."
+else
+	echo "Already updated."
+fi
+
 # Start the first process
 /usr/sbin/nginx
 status=$?

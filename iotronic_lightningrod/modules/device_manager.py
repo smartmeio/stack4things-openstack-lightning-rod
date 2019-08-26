@@ -589,6 +589,72 @@ class DeviceManager(Module.Module):
         return w_msg.serialize()
 
     # SC
+    async def DeviceMountFs(self, req, parameters=None):
+        req_id = req['uuid']
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
+
+        def MountFs():
+            try:
+
+                # mount_rw|mount_ro|mount_status
+                action = parameters['action_cmd']
+
+                if action == "mount_rw":
+                    command = "rootrw"
+                elif action == "mount_ro":
+                    command = "rootro"
+                elif action == "mount_status":
+                    command = "cat /proc/mounts"
+                else:
+                    command = None
+
+                if command == None:
+
+                    out = subprocess.Popen(
+                        command,
+                        shell=True,
+                        stdout=subprocess.PIPE
+                    )
+
+                    message = str(out.communicate()[0].decode('utf-8').strip())
+
+                else:
+                    message = "Mount command '" + str(action) \
+                              + "' not supported!"
+
+                w_msg = WM.WampSuccess(msg=message, req_id=req_id)
+
+            except Exception as err:
+                LOG.warning("--> Error in " + rpc_name + ": " + str(err))
+                w_msg = WM.WampSuccess(msg=message, req_id=req_id)
+
+            if (req['main_request_uuid'] != None):
+                wampNotify(self.device_session,
+                           self.board, w_msg.serialize(), rpc_name)
+            else:
+                return w_msg
+
+        if (req['main_request_uuid'] != None):
+
+            LOG.info(" - main request: " + str(req['main_request_uuid']))
+            try:
+                threading.Thread(target=MountFs).start()
+                w_msg = WM.WampRunning(msg=rpc_name, req_id=req_id)
+
+            except Exception as err:
+                message = "Error in thr_" + rpc_name + ": " + str(err)
+                LOG.error(message)
+                w_msg = WM.WampError(msg=message, req_id=req_id)
+
+        else:
+            w_msg = MountFs()
+
+        return w_msg.serialize()
+
+    # SC
     async def DeviceNetConfig(self, req, parameters=None):
         req_id = req['uuid']
         rpc_name = utils.getFuncName()
