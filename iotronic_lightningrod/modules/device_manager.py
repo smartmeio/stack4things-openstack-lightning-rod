@@ -244,6 +244,10 @@ class DeviceManager(Module.Module):
             update_conf = parameters['update_conf']
             if update_conf == "":
                 update_conf = False
+            elif update_conf == "false":
+                update_conf = False
+            elif update_conf == "true":
+                update_conf = True
         else:
             update_conf = False
 
@@ -599,36 +603,53 @@ class DeviceManager(Module.Module):
         def MountFs():
             try:
 
+                command = None
+
                 # mount_rw|mount_ro|mount_status
-                action = parameters['action_cmd']
+                action = str(parameters['mnt_cmd'])
 
                 if action == "mount_rw":
                     command = "rootrw"
+
                 elif action == "mount_ro":
                     command = "rootro"
+
                 elif action == "mount_status":
                     command = "cat /proc/mounts"
+
                 else:
                     command = None
 
-                if command == None:
+                LOG.info(" - " + str(action) + " -> " + str(command))
+
+                if command != None:
 
                     out = subprocess.Popen(
                         command,
                         shell=True,
-                        stdout=subprocess.PIPE
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE
                     )
 
-                    message = str(out.communicate()[0].decode('utf-8').strip())
+                    (stdout, stderr) = out.communicate()
+
+                    if out.returncode != 0:
+                        message = "Error code " + str(out.returncode) + ": '" \
+                                  + str(stderr.decode('utf-8').strip()) + "'"
+                        LOG.warning(message)
+                        w_msg = WM.WampError(msg=message, req_id=req_id)
+                    else:
+                        message = stdout.decode('utf-8').strip()
+                        w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
                 else:
                     message = "Mount command '" + str(action) \
                               + "' not supported!"
-
-                w_msg = WM.WampSuccess(msg=message, req_id=req_id)
+                    w_msg = WM.WampError(msg=message, req_id=req_id)
 
             except Exception as err:
                 LOG.warning("--> Error in " + rpc_name + ": " + str(err))
+                message = str(err)
                 w_msg = WM.WampSuccess(msg=message, req_id=req_id)
 
             if (req['main_request_uuid'] != None):
@@ -651,6 +672,8 @@ class DeviceManager(Module.Module):
 
         else:
             w_msg = MountFs()
+
+        LOG.info(" - Result sent to Iotronic.")
 
         return w_msg.serialize()
 

@@ -239,7 +239,8 @@ class ProxyManager(Proxy.Proxy):
                       "--agree-tos " \
                       "--email " + owner_email
 
-            LOG.debug(command)
+            LOG.info("Certbot is running:")
+            LOG.info(command)
 
             certbot_result = call(command, shell=True)
             LOG.info("CERTBOT RESULT: " + str(certbot_result))
@@ -353,7 +354,9 @@ class ProxyManager(Proxy.Proxy):
                       "--domain " + str(dns_list)
             """
 
-            LOG.debug(command)
+            LOG.info("Certbot is running:")
+            LOG.info(command)
+
             certbot_result = call(command, shell=True)
             LOG.info("CERTBOT RESULT: " + str(certbot_result))
 
@@ -406,7 +409,9 @@ class ProxyManager(Proxy.Proxy):
                           "--tls-sni-01-port 60000 " \
                           "--domain " + str(dns_list)
 
-                LOG.debug(command)
+                LOG.info("Certbot is running:")
+                LOG.info(command)
+
                 certbot_result = call(command, shell=True)
                 LOG.info("CERTBOT RESULT: " + str(certbot_result))
 
