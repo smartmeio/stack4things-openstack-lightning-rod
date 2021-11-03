@@ -6,32 +6,65 @@
 
 {% block content %}
 <div class="jumbotron">
-    <h2>Board info @ {{ timestamp }}</h2>
-    <br>
-    <h4> Iotronic </h4>
-    <li> Lightning-rod version: {{lr_version}}</li>
 
-    <li> Iotronic connection status: {{iotronic_status}}</li>
-    <li>Name: {{ board_name }} </li>
-    <li>UUID: {{ board_id }} </li>
-    <li>Registartion status: {{ board_reg_status }}</li>
-    <li>WAMP Agent: {{ wagent }} </li>
-    <li>Session ID: {{ session_id }} </li>
-    <br>
-    <h4> WSTUN </h4>
-    <li>Status: {{ wstun_status }} </li>
-    <li>Services: <br>
-        <ul>
-                {% autoescape false %}
-                    {{service_list}}
-                {% endautoescape %}
-        </ul>
+    {% if messages %}
 
-    </li>
-    <br>
-    <h4> Hardware information </h4>
-    <li>Serial device: {{ serial_dev }} </li>
-    <li>NIC: {{ nic }} </li>
+        <h5><b>Error messages:</b></h5>
+
+        <center>
+
+            <div align="left" style="width:90%">
+                <ul class="messages">
+                    {% for message in messages %}
+                    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+        </center>
+
+    {% else %}
+
+        <br><br>
+
+        <h2>Board info @ {{ timestamp }}</h2>
+        <br>
+        <h4> Iotronic </h4>
+        <li> Lightning-rod version: {{lr_version}}</li>
+
+        <li> Iotronic connection status: {{iotronic_status}}</li>
+        <li>Name: {{ board_name }} </li>
+        <li>UUID: {{ board_id }} </li>
+        <li>Registartion status: {{ board_reg_status }}</li>
+        <li>WAMP Agent: {{ wagent }} </li>
+        <li>Session ID: {{ session_id }} </li>
+        <br>
+        <h4> WSTUN </h4>
+        <li>Status: {{ wstun_status }} </li>
+        <li>Services: <br>
+            <ul>
+                    {% autoescape false %}
+                        {{service_list}}
+                    {% endautoescape %}
+            </ul>
+
+        </li>
+        <li>WebServices: <br>
+            <ul>
+                    {% autoescape false %}
+                        {{webservice_list}}
+                    {% endautoescape %}
+            </ul>
+            
+        </li>
+        <br>
+        <h4> Hardware information </h4>
+        <li>Serial device: {{ serial_dev }} </li>
+        <li>NIC: {{ nic }} </li>
+
+        <br><br>
+
+    {% endif %}
 
 </div>
 {% endblock %}

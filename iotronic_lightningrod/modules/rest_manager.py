@@ -34,8 +34,9 @@ from flask import request
 from flask import send_file
 from flask import session as f_session
 from flask import url_for
+from flask import abort
+# from flask import Response
 
-import getpass
 import os
 import subprocess
 import threading
@@ -144,6 +145,18 @@ class RestManager(Module.Module):
                 lr_cty = sock_bundle[2] + " - " + sock_bundle[0] \
                     + " - " + sock_bundle[1]
 
+            webservice_list = []
+            nginx_path = "/etc/nginx/conf.d/"
+
+            if os.path.exists(nginx_path):
+                active_webservice_list = [f for f in os.listdir(nginx_path)
+                                if os.path.isfile(os.path.join(nginx_path, f))]
+
+                if len(active_webservice_list) != 0:
+                    for ws in active_webservice_list:
+                        ws = ws.replace('.conf', '')
+                        webservice_list.append(ws)
+
             info = {
                 'board_id': board.uuid,
                 'board_name': board.name,
@@ -155,6 +168,7 @@ class RestManager(Module.Module):
                 'board_reg_status': str(board.status),
                 'iotronic_status': str(iotronic_status(board.status)),
                 'service_list': service_list,
+                'webservice_list': webservice_list,
                 'serial_dev': device_manager.getSerialDevice(),
                 'nic': lr_cty,
                 'lr_version': str(
@@ -162,55 +176,84 @@ class RestManager(Module.Module):
                 )
             }
 
-            return info
+            return info, 200
 
         @app.route('/status')
         def status():
 
-            if ('username' in f_session):
+            try:
 
-                f_session['status'] = str(board.status)
+                if ('username' in f_session):
 
-                wstun_status = service_manager.wstun_status()
-                if wstun_status == 0:
-                    wstun_status = "Online"
+                    f_session['status'] = str(board.status)
+
+                    wstun_status = service_manager.wstun_status()
+                    if wstun_status == 0:
+                        wstun_status = "Online"
+                    else:
+                        wstun_status = "Offline"
+
+                    service_list = service_manager.services_list("html")
+                    if service_list == "":
+                        service_list = "no services exposed!"
+
+                    webservice_list = ""
+                    nginx_path = "/etc/nginx/conf.d/"
+
+                    if os.path.exists(nginx_path):
+                        active_webservice_list = [
+                            f for f in os.listdir(nginx_path)
+                                if os.path.isfile(os.path.join(nginx_path, f))
+                        ]
+
+                        for ws in active_webservice_list:
+                            ws = ws.replace('.conf', '')[3:]
+                            webservice_list = webservice_list + "\
+                                <li>" + ws + "</li>"
+                    else:
+                        webservice_list = "no webservices exposed!"
+
+                    if webservice_list == "":
+                        webservice_list = "no webservices exposed!"
+
+                    lr_cty = "N/A"
+                    from iotronic_lightningrod.lightningrod import wport
+                    sock_bundle = lr_utils.get_socket_info(wport)
+
+                    if sock_bundle != "N/A":
+                        lr_cty = sock_bundle[2] + " - " + sock_bundle[0] \
+                            + " - " + sock_bundle[1]
+
+                    info = {
+                        'board_id': board.uuid,
+                        'board_name': board.name,
+                        'wagent': board.agent,
+                        'session_id': board.session_id,
+                        'timestamp': str(
+                            datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')),
+                        'wstun_status': wstun_status,
+                        'board_reg_status': str(board.status),
+                        'iotronic_status': str(iotronic_status(board.status)),
+                        'service_list': str(service_list),
+                        'webservice_list': str(webservice_list),
+                        'serial_dev': device_manager.getSerialDevice(),
+                        'nic': lr_cty,
+                        'lr_version': str(
+                            utils.get_version("iotronic-lightningrod")
+                        )
+                    }
+
+                    return render_template('status.html', **info)
+
                 else:
-                    wstun_status = "Offline"
+                    return redirect(url_for('login', next=request.endpoint))
 
-                service_list = service_manager.services_list("html")
-                if service_list == "":
-                    service_list = "no services exposed!"
-
-                lr_cty = "N/A"
-                from iotronic_lightningrod.lightningrod import wport
-                sock_bundle = lr_utils.get_socket_info(wport)
-
-                if sock_bundle != "N/A":
-                    lr_cty = sock_bundle[2] + " - " + sock_bundle[0] \
-                        + " - " + sock_bundle[1]
-
+            except Exception as err:
+                LOG.error(err)
                 info = {
-                    'board_id': board.uuid,
-                    'board_name': board.name,
-                    'wagent': board.agent,
-                    'session_id': board.session_id,
-                    'timestamp': str(
-                        datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')),
-                    'wstun_status': wstun_status,
-                    'board_reg_status': str(board.status),
-                    'iotronic_status': str(iotronic_status(board.status)),
-                    'service_list': str(service_list),
-                    'serial_dev': device_manager.getSerialDevice(),
-                    'nic': lr_cty,
-                    'lr_version': str(
-                        utils.get_version("iotronic-lightningrod")
-                    )
-                }
-
+                        'messages': [str(err)]
+                    }
                 return render_template('status.html', **info)
-
-            else:
-                return redirect(url_for('login', next=request.endpoint))
 
         @app.route('/system')
         def system():
@@ -360,7 +403,7 @@ class RestManager(Module.Module):
                                     **info,
                                     error=error
                                 )
-                                return redirect("/config", code=302)
+                                # return redirect("/config", code=302)
 
                 else:
                     return redirect("/", code=302)
@@ -369,6 +412,9 @@ class RestManager(Module.Module):
 
         @app.route('/backup', methods=['GET'])
         def backup_download():
+
+            # LOG.info(request.query_string)
+            # LOG.info(request.__dict__)
 
             if 'username' in f_session:
 
@@ -433,7 +479,33 @@ class RestManager(Module.Module):
 
                 if request.method == 'POST':
 
-                    if request.form.get('reg_btn') == 'CONFIGURE':
+                    req_body = request.get_json()
+
+                    LOG.debug(req_body)
+
+                    if req_body != None:
+
+                        if 'action' in req_body:
+
+                            if req_body['action'] == "configure":
+                                LOG.info("API LR configuration")
+
+                                ragent = req_body['urlwagent']
+                                code = req_body['code']
+
+                                lr_config(ragent, code)
+
+                                if 'hostname' in req_body:
+                                    if req_body['hostname'] != "":
+                                        change_hostname(req_body['hostname'])
+
+                                return {"result": "LR configured, \
+                                    authenticating..."}, 200
+
+                        else:
+                            abort(400)
+
+                    elif request.form.get('reg_btn') == 'CONFIGURE':
                         ragent = request.form['urlwagent']
                         code = request.form['code']
                         lr_config(ragent, code)
@@ -633,6 +705,12 @@ class RestManager(Module.Module):
                             return render_template('config.html', **info)
 
             else:
+                if request.method == 'POST':
+                    req_body = request.get_json()
+
+                    if req_body != None and str(board.status) != "first_boot":
+                        return {"result": "LR already configured!"}, 403
+
                 return redirect(url_for('login', next=request.endpoint))
 
         app.run(host='0.0.0.0', port=1474, debug=False, use_reloader=False)

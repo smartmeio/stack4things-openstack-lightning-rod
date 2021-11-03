@@ -26,7 +26,7 @@ from oslo_log import log as logging
 import asyncio
 import inspect
 import os
-import pkg_resources
+# import pkg_resources
 import signal
 import ssl
 import sys
@@ -286,13 +286,22 @@ def iotronic_status(board_status):
                 wamp_singleCheck(SESSION),
                 loop
             )
-            alive = alive.result()
+            try:
+                alive = alive.result(timeout=5)
+            except asyncio.TimeoutError:
+                LOG.warning('Check Iotronic request timeout')
+                alive.cancel()
+                alive = "alive_req_canceled"
+
+        except asyncio.TimeoutError as e:
+            LOG.error(" - Iotronic check timeout: " + str(e))
+            alive = "rpc_timeout"
 
         except Exception as e:
             LOG.error(" - Iotronic check: " + str(e))
-            alive = e
+            alive = "not_connected"
     else:
-        alive = "Not connected!"
+        alive = "not_connected"
 
     return alive
 
@@ -445,6 +454,9 @@ async def IotronicLogin(board, session, details):
                 # reconnection = False
 
             else:
+                LOG.warning(
+                    " - " + str(w_msg.result) + ": " + str(w_msg.message)
+                )
                 Bye()
 
     except exception.ApplicationError as e:
@@ -819,8 +831,10 @@ def wampConnect(wamp_conf):
         async def onConnectFailure(session, fail_msg):
             LOG.warning("WAMP Connection Failure: " + str(fail_msg))
 
+            """
             LOG.warning(" - timeout set @ " +
                         str(CONF.autobahn.connection_failure_timer))
+            """
 
             global connFailure
             if connFailure != None:
@@ -930,9 +944,9 @@ def wampConnect(wamp_conf):
                 LOG.error("Reconnection wrong status!")
 
     except IndexError as err:
-            LOG.error(" - Error parsing WAMP url: " + str(err))
-            LOG.error(" --> port or address not specified")
-            board.status = "url_wamp_error"
+        LOG.error(" - Error parsing WAMP url: " + str(err))
+        LOG.error(" --> port or address not specified")
+        board.status = "url_wamp_error"
 
     except Exception as err:
         LOG.error(" - WAMP connection error: " + str(err))
@@ -1026,68 +1040,73 @@ def modulesLoader(session):
 
     """
 
-    LOG.info("Available modules: ")
+    try:
 
-    ep = []
+        LOG.info("Available modules: ")
 
-    for ep in pkg_resources.iter_entry_points(group='s4t.modules'):
-        LOG.info(" - " + str(ep))
+        ep = []
 
-    if not ep:
+        for ep in pkg_resources.iter_entry_points(group='s4t.modules'):
+            LOG.info(" - " + str(ep))
 
-        LOG.info("No modules available!")
-        sys.exit()
+        if not ep:
 
-    else:
+            LOG.info("No modules available!")
+            sys.exit()
 
-        modules = extension.ExtensionManager(
-            namespace='s4t.modules',
-            # invoke_on_load=True,
-            # invoke_args=(session,),
-        )
+        else:
 
-        LOG.info('Modules to load:')
+            modules = extension.ExtensionManager(
+                namespace='s4t.modules',
+                # invoke_on_load=True,
+                # invoke_args=(session,),
+            )
 
-        for ext in modules.extensions:
+            LOG.info('Modules to load:')
 
-            LOG.debug(ext.name)
+            for ext in modules.extensions:
 
-            if (ext.name == 'gpio') & (board.type == 'server'):
-                LOG.info("- GPIO module disabled for 'server' devices")
+                LOG.debug(ext.name)
 
-            else:
+                if (ext.name == 'gpio') & (board.type == 'server'):
+                    LOG.info("- GPIO module disabled for 'server' devices")
 
-                if ext.name != "rest":
+                else:
 
-                    mod = ext.plugin(board, session)
+                    if ext.name != "rest":
 
-                    global MODULES
-                    MODULES[mod.name] = mod
+                        mod = ext.plugin(board, session)
 
-                    # Methods list for each module
-                    meth_list = inspect.getmembers(
-                        mod, predicate=inspect.ismethod
-                    )
+                        global MODULES
+                        MODULES[mod.name] = mod
 
-                    global RPC
-                    RPC[mod.name] = meth_list
+                        # Methods list for each module
+                        meth_list = inspect.getmembers(
+                            mod, predicate=inspect.ismethod
+                        )
 
-                    if len(meth_list) == 3:
-                        # there are at least two methods for each module:
-                        # "__init__" and "finalize"
+                        global RPC
+                        RPC[mod.name] = meth_list
 
-                        LOG.info(" - No RPC to register for "
-                                 + str(ext.name) + " module!")
+                        if len(meth_list) == 3:
+                            # there are at least two methods for each module:
+                            # "__init__" and "finalize"
 
-                    else:
-                        LOG.info(" - RPC list of " + str(mod.name) + ":")
-                        moduleWampRegister(SESSION, meth_list)
+                            LOG.info(" - No RPC to register for "
+                                    + str(ext.name) + " module!")
 
-                    # Call the finalize procedure for each module
-                    mod.finalize()
+                        else:
+                            LOG.info(" - RPC list of " + str(mod.name) + ":")
+                            moduleWampRegister(SESSION, meth_list)
 
-        LOG.info("Lightning-rod modules loaded.")
-        LOG.info("\n\nListening...")
+                        # Call the finalize procedure for each module
+                        mod.finalize()
+
+    except Exception as err:
+        LOG.warning("Board modules loading error: " + str(err))
+
+    LOG.info("Lightning-rod modules loaded.")
+    LOG.info("\n\nListening...")
 
 
 def moduleReloadInfo(session):

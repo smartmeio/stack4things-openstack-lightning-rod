@@ -1,5 +1,4 @@
-# Copyright 2017 MDSLAB - University of Messina
-# All Rights Reserved.
+#    Copyright 2017 MDSLAB - University of Messina. All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -18,16 +17,19 @@ __author__ = "Nicola Peditto <n.peditto@gmail.com>"
 from iotronic_lightningrod.common import utils
 from iotronic_lightningrod.config import package_path
 from iotronic_lightningrod.lightningrod import RPC_proxies
+from iotronic_lightningrod.lightningrod import wampNotify
 from iotronic_lightningrod.modules import Module
 import iotronic_lightningrod.wampmessage as WM
 
-
+from autobahn.wamp import exception
+import threading
 import importlib as imp
 import inspect
 import json
 import OpenSSL.crypto
 import os
 import time
+
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -246,5 +248,76 @@ class WebServiceManager(Module.Module):
         message = self.board.proxy._proxyDisableWebService()
 
         w_msg = WM.WampSuccess(msg=message, req_id=req_id)
+
+        return w_msg.serialize()
+
+    """
+    # LONG
+    async def RenewWebservice(self, req, parameters=None):
+        req_id = req['uuid']
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
+
+        message = self.board.proxy._proxyRenewWebservice()
+
+        w_msg = WM.WampSuccess(msg=message, req_id=req_id)
+
+        return w_msg.serialize()
+    """
+
+    # LONG
+    async def RenewWebservice(self, req, parameters=None):
+        req_id = req['uuid']
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
+
+        def renewing():
+            message = self.board.proxy._proxyRenewWebservice()
+
+            try:
+
+                message = json.loads(message)
+
+                w_msg = WM.WampMessage(
+                    message=message['message'],
+                    result=message['result'],
+                    req_id=req_id
+                )
+
+            except Exception as e:
+                LOG.error(e)
+                w_msg = WM.WampError(
+                    msg="Error returning message",
+                    req_id=req_id
+                )
+
+            try:
+
+                wampNotify(
+                    self.session,
+                    self.board,
+                    w_msg.serialize(),
+                    rpc_name
+                )
+
+            except exception.ApplicationError as e:
+                LOG.error(
+                    " - Notify result '" + rpc_name + "' error: " + str(e)
+                )
+
+        try:
+
+            threading.Thread(target=renewing).start()
+
+        except Exception as err:
+            LOG.error("Error in renewing thread: " + str(err))
+
+        out_msg = "LR is renewing webservice certificates..."
+
+        w_msg = WM.WampRunning(msg=out_msg, req_id=req_id)
 
         return w_msg.serialize()

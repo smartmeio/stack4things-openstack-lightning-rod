@@ -27,6 +27,8 @@ import subprocess
 import sys
 import threading
 import time
+import signal
+
 
 from iotronic_lightningrod.common import utils
 from iotronic_lightningrod.config import entry_points_name
@@ -39,6 +41,9 @@ LOG = logging.getLogger(__name__)
 
 global connFailureRecovery
 connFailureRecovery = None
+
+global gdbPid
+gdbPid = None
 
 
 class Utility(Module.Module):
@@ -200,17 +205,34 @@ def destroyWampSocket():
         LOG.warning("WAMP Connection Recovery timer: EXPIRED")
         lr_utils.LR_restart()
 
+    def timeoutGDB():
+        LOG.warning("WAMP Connection Recovery GDB timer: EXPIRED")
+
+        global gdbPid
+        os.kill(gdbPid, signal.SIGKILL)
+        LOG.warning("WAMP Connection Recovery GDB process: KILLED")
+
+        LOG.warning("WAMP Connection Recovery GDB process: LR restarting...")
+        lr_utils.LR_restart()
+
     connFailureRecovery = Timer(30, timeout)
     connFailureRecovery.start()
     LOG.warning("WAMP Connection Recovery timer: STARTED")
 
     try:
 
+        gdbTimeoutCheck = Timer(30, timeoutGDB)
+        gdbTimeoutCheck.start()
+        LOG.debug("WAMP Connection Recovery GDB timer: STARTED")
+
         process = subprocess.Popen(
             ["gdb", "-p", str(LR_PID)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE
         )
+
+        global gdbPid
+        gdbPid = process.pid
 
         proc = psutil.Process()
 
@@ -249,6 +271,9 @@ def destroyWampSocket():
                         "WAMP Connection Recovery timer: CANCELLED."
                     )
                     connFailureRecovery.cancel()
+
+        gdbTimeoutCheck.cancel()
+        LOG.debug("WAMP Connection Recovery GDB timer: CLEANED")
 
         if wamp_conn_set == False:
             LOG.warning("WAMP CONNECTION NOT FOUND: LR restarting...")

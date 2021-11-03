@@ -18,6 +18,7 @@
 import os
 import sys
 
+
 if len(sys.argv) == 1:
 
     print('Arguments required:')
@@ -28,6 +29,13 @@ else:
 
     if sys.argv[1] == "-c":
 
+        test=os.system('grep -Rq "<REGISTRATION-TOKEN>" ' + sys.argv[4] + '/settings.json')
+        #print(test)
+        if test == 0:
+            print("Configuration status: new")
+        else:
+            print("Configuration status: configured")
+
         if len(sys.argv) < 5:
             print('Arguments required: '
                   + '<REGISTRATION-TOKEN> '
@@ -36,20 +44,63 @@ else:
                   str(sys.argv)
                   )
         else:
-            os.system('sed -i "s|\\"code\\":.*|\\"code\\": \\"'
-                      + sys.argv[2] + '\\"|g" ' + sys.argv[4] + '/settings.json')
+                      
             os.system('sed -i "s|\\"url\\":.*|\\"url\\": \\"'
                       + sys.argv[3] + '\\",|g" ' + sys.argv[4] + '/settings.json')
             os.system('sed -i "s|<IOTRONIC-REALM>|s4t|g" '
                       + sys.argv[4] + '/settings.json')
 
+            if test == 0:
+                #print("Configuration status: new")
+                os.system('sed -i "s|\\"code\\":.*|\\"code\\": \\"'
+                      + sys.argv[2] + '\\"|g" ' + sys.argv[4] + '/settings.json')
+                print("Configuration completed")
+            else:
+
+                check_reg=os.system('grep -Rq "main-agent" ' + sys.argv[4] + '/settings.json')
+                if check_reg == 0:
+                    #print("Configuration status: configured")
+                    os.system('sed -i "s|\\"code\\":.*|\\"code\\": \\"'
+                        + sys.argv[2] + '\\",|g" ' + sys.argv[4] + '/settings.json')
+                else:
+                    os.system('sed -i "s|\\"code\\":.*|\\"code\\": \\"'
+                        + sys.argv[2] + '\\"|g" ' + sys.argv[4] + '/settings.json')
+
+                print("Configuration overwritten")     
+
     else:
+
+        test=os.system('grep -Rq "<REGISTRATION-TOKEN>" /etc/iotronic/settings.json')
+        #print(test)
+        if test == 0:
+            print("Configuration status: new")
+        else:
+            print("Configuration status: configured")
+
         if len(sys.argv) < 3:
             print('Arguments required: <REGISTRATION-TOKEN> <WAMP-REG-AGENT-URL>',
                   str(sys.argv))
         else:
-            os.system('sed -i "s|\\"code\\":.*|\\"code\\": \\"'
-                      + sys.argv[1] + '\\"|g" /etc/iotronic/settings.json')
+
             os.system('sed -i "s|\\"url\\":.*|\\"url\\": \\"'
-                      + sys.argv[2] + '\\",|g" /etc/iotronic/settings.json')
+                     + sys.argv[2] + '\\",|g" /etc/iotronic/settings.json')
+
             os.system('sed -i "s|<IOTRONIC-REALM>|s4t|g" /etc/iotronic/settings.json')
+
+            if test == 0:
+                #print("Configuration status: new")
+                os.system('sed -i "s|\\"code\\":.*|\\"code\\": \\"'
+                      + sys.argv[1] + '\\"|g" /etc/iotronic/settings.json')
+                print("Configuration completed")
+            else:
+
+                check_reg=os.system('grep -Rq "main-agent" /etc/iotronic/settings.json')
+                if check_reg == 0:
+                    #print("Configuration status: configured")
+                    os.system('sed -i "s|\\"code\\":.*|\\"code\\": \\"'
+                        + sys.argv[1] + '\\",|g" /etc/iotronic/settings.json')
+                else:
+                    os.system('sed -i "s|\\"code\\":.*|\\"code\\": \\"'
+                      + sys.argv[1] + '\\"|g" /etc/iotronic/settings.json')
+
+                print("Configuration overwritten")     

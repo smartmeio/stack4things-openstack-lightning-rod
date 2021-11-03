@@ -11,7 +11,7 @@ if [ "$1" = "backup" ]; then
 
     else
 
-        bkp_path=""
+        bkp_path="."
 
     fi
 
@@ -24,13 +24,15 @@ if [ "$1" = "backup" ]; then
     tar zcvf $bkp_filename /var/lib/iotronic /etc/iotronic /etc/letsencrypt /etc/nginx/conf.d &>/dev/null
 
 elif [ "$1" = "restore" ]; then
+
 	if [ "$#" -ne 2 ]; then
-    		echo "You have to specify:  'restore' <BACKUP_FILE> "
+    		echo "You have to specify:  'restore' <BACKUP_FILE_PATH> "
     		exit
 	fi
 	# RESTORE
 	echo "Restoring Iotronic configuration"
-	tar -xvzf $2 -C /
+	#tar -xvzf $2 -C /
+    tar -xvf $2 -C /
 
 	service nginx restart
 
@@ -39,8 +41,13 @@ elif [ "$1" = "restore" ]; then
 	echo -e "\nCompleted!"
 
 else
-        echo "You have to specify:"
-        echo " - for backup:  'backup'"
-        echo " - for restore: 'restore' <backup-filename-to-restore>"
-        exit
+
+    echo "You have to specify:"
+    echo " - to backup:  'backup'"
+    echo "   - options:"
+    echo "     --path:    specify path where to save the backup file; e.g.: /tmp or /home/<USER>"
+    echo ""
+    echo " - to restore: 'restore' <BACKUP_FILE_PATH>"
+    exit
+
 fi

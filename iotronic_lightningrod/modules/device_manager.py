@@ -21,11 +21,14 @@ import os
 import subprocess
 import threading
 import time
+import json
+import requests
 
 from autobahn.wamp import exception
 from datetime import datetime
 
 from iotronic_lightningrod.common import utils
+# from iotronic_lightningrod.common.exception import timeout
 from iotronic_lightningrod.config import package_path
 from iotronic_lightningrod.lightningrod import RPC_devices
 from iotronic_lightningrod.lightningrod import wampNotify
@@ -495,7 +498,8 @@ class DeviceManager(Module.Module):
                                     + " " + str(pkg)
 
                         else:
-                            command = command + " " + str(cmd) + " " + str(pkg)
+                            command = command + " " + str(cmd) \
+                                + " " + str(pkg)
 
                         if 'version' in parameters:
 
@@ -683,6 +687,41 @@ class DeviceManager(Module.Module):
         return w_msg.serialize()
 
     # SC
+    async def DeviceFactoryReset(self, req, parameters=None):
+        req_id = req['uuid']
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
+
+        def FactoryReset():
+            message = factory_reset()
+            w_msg = WM.WampSuccess(msg=message, req_id=req_id)
+
+            if (req['main_request_uuid'] != None):
+                wampNotify(self.device_session,
+                           self.board, w_msg.serialize(), rpc_name)
+            else:
+                return w_msg
+
+        if (req['main_request_uuid'] != None):
+
+            LOG.info(" - main request: " + str(req['main_request_uuid']))
+            try:
+                threading.Thread(target=FactoryReset).start()
+                w_msg = WM.WampRunning(msg=rpc_name, req_id=req_id)
+
+            except Exception as err:
+                message = "Error in thr_" + rpc_name + ": " + str(err)
+                LOG.error(message)
+                w_msg = WM.WampError(msg=message, req_id=req_id)
+
+        else:
+            w_msg = FactoryReset()
+
+        return w_msg.serialize()
+
+    # SC
     async def DeviceNetConfig(self, req, parameters=None):
         req_id = req['uuid']
         rpc_name = utils.getFuncName()
@@ -716,6 +755,136 @@ class DeviceManager(Module.Module):
             w_msg = Ifconfig()
 
         return w_msg.serialize()
+
+    # SC
+    async def DeviceRestSubmit(self, req, parameters=None):
+        req_id = req['uuid']
+        rpc_name = utils.getFuncName()
+        LOG.info("RPC " + rpc_name + " CALLED [req_id: " + str(req_id) + "]:")
+        if parameters is not None:
+            LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
+
+        def RestSubmit():
+
+            try:
+
+                if 'url' in parameters:
+                    url = str(parameters['url'])
+                else:
+                    message = "Error RestSubmit: no url specified."
+                    LOG.error(message)
+                    w_msg = WM.WampError(msg=message, req_id=req_id)
+                    return w_msg
+
+                if 'method' in parameters:
+                    method = str(parameters['method'])
+                else:
+                    message = "Error RestSubmit: no REST method specified."
+                    LOG.error(message)
+                    w_msg = WM.WampError(msg=message, req_id=req_id)
+                    return w_msg
+
+                response = requests.request(
+                    method,
+                    url,
+                    params=json.dumps(parameters['params']) if '\
+                        params' in parameters else None,
+                    data=json.dumps(parameters['data']) if '\
+                        data' in parameters else None,
+                    json=parameters['json'] if '\
+                        json' in parameters else None,
+                    headers=parameters['headers'] if '\
+                        headers' in parameters else None,
+                    cookies=parameters['cookies'] if '\
+                        cookies' in parameters else None,
+                    files=parameters['files'] if '\
+                        files' in parameters else None,
+                    auth=parameters['auth'] if '\
+                        auth' in parameters else None,
+                    timeout=float(parameters['timeout']) if '\
+                        timeout' in parameters else None,
+                    allow_redirects=parameters['allow_redirects'] if '\
+                        allow_redirects' in parameters else True,
+                    proxies=parameters['proxies'] if '\
+                        proxies' in parameters else None,
+                    verify=parameters['verify'] if '\
+                        verify' in parameters else True,
+                    stream=parameters['stream'] if '\
+                        stream' in parameters else False,
+                    cert=parameters['cert'] if '\
+                        cert' in parameters else None,
+
+                )
+
+                res = json.loads(response.text)
+
+                w_msg = WM.WampSuccess(msg=res, req_id=req_id)
+
+            except Exception as err:
+                return WM.WampError(msg=str(err), req_id=req_id)
+
+            if (req['main_request_uuid'] != None):
+                wampNotify(self.device_session,
+                           self.board, w_msg.serialize(), rpc_name)
+            else:
+                return w_msg
+
+        if (req['main_request_uuid'] != None):
+
+            LOG.info(" - main request: " + str(req['main_request_uuid']))
+            try:
+
+                threading.Thread(target=RestSubmit).start()
+                w_msg = WM.WampRunning(msg=rpc_name, req_id=req_id)
+
+            except Exception as err:
+                message = "Error in thr_" + rpc_name + ": " + str(err)
+                LOG.error(message)
+                w_msg = WM.WampError(msg=message, req_id=req_id)
+
+        else:
+            w_msg = RestSubmit()
+
+        return w_msg.serialize()
+
+
+def lr_install():
+    bashCommand = "lr_install"
+    process = subprocess.Popen(bashCommand.split(),
+                                stdout=subprocess.PIPE)
+    output, error = process.communicate()
+
+    return
+
+
+def factory_reset():
+
+    LOG.info("Lightning-rod factory reset: ")
+
+    # delete nginx conf.d files
+    os.system("rm /etc/nginx/conf.d/lr_*")
+    LOG.info("--> NGINX settings deleted.")
+
+    # delete letsencrypt
+    os.system("rm -r /etc/letsencrypt/*")
+    LOG.info("--> LetsEncrypt settings deleted.")
+
+    # delete var-iotronic
+    os.system("rm -r /var/lib/iotronic/*")
+    LOG.info("--> Iotronic data deleted.")
+
+    # delete etc-iotronic
+    os.system("rm -r /etc/iotronic/*")
+    LOG.info("--> Iotronic settings deleted.")
+
+    # exec lr_install
+    lr_install()
+
+    # restart LR
+    LOG.info("--> LR restarting in 5 seconds...")
+    lr_utils.LR_restart_delayed(5)
+
+    return "Device reset completed"
 
 
 def getIfconfig():

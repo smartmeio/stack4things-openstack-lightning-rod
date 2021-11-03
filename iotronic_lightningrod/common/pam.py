@@ -77,6 +77,7 @@ class PamResp(Structure):
     def __repr__(self):
         return "<PamResp %i '%s'>" % (self.resp_retcode, self.resp)
 
+
 conv_func = CFUNCTYPE(
     c_int,
     c_int,
@@ -89,6 +90,7 @@ conv_func = CFUNCTYPE(
 class PamWrapper(Structure):
     """pam_conv structure wrapper"""
     _fields_ = [("conv", conv_func), ("appdata_ptr", c_void_p)]
+
 
 pamLib_start = libpam.pam_start
 pamLib_start.restype = c_int

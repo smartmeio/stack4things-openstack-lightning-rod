@@ -25,6 +25,7 @@ import queue
 import shutil
 import threading
 import time
+import platform
 
 
 from iotronic_lightningrod.common import utils
@@ -149,9 +150,17 @@ class PluginManager(Module.Module):
 
                 try:
 
-                    if (plugin_uuid in PLUGINS_THRS) and (
-                            PLUGINS_THRS[plugin_uuid].isAlive()
-                    ):
+                    worker_alive = False
+                    if (plugin_uuid in PLUGINS_THRS):
+                        worker = PLUGINS_THRS[plugin_uuid]
+
+                        pyvers = platform.python_version_tuple()
+                        if int(pyvers[0]) == 3 and int(pyvers[1]) >= 9:
+                            worker_alive = worker.is_alive()
+                        else:
+                            worker_alive = worker.isAlive()
+
+                    if (plugin_uuid in PLUGINS_THRS) and worker_alive:
 
                         LOG.warning(" - Plugin "
                                     + plugin_uuid + " already started!")
@@ -380,10 +389,19 @@ class PluginManager(Module.Module):
 
                 plugin_name = plugins_conf['plugins'][plugin_uuid]['name']
 
+                worker_alive = False
+                if (plugin_uuid in PLUGINS_THRS):
+                    worker = PLUGINS_THRS[plugin_uuid]
+
+                    pyvers = platform.python_version_tuple()
+
+                    if int(pyvers[0]) == 3 and int(pyvers[1]) >= 9:
+                        worker_alive = worker.is_alive()
+                    else:
+                        worker_alive = worker.isAlive()
+
                 # Check if the plugin is already running
-                if (plugin_uuid in PLUGINS_THRS) and (
-                        PLUGINS_THRS[plugin_uuid].isAlive()
-                ):
+                if (plugin_uuid in PLUGINS_THRS) and worker_alive:
 
                     message = "ALREADY STARTED!"
                     LOG.warning(" - Plugin "
@@ -495,10 +513,19 @@ class PluginManager(Module.Module):
 
             if plugin_uuid in PLUGINS_THRS:
 
-                worker = PLUGINS_THRS[plugin_uuid]
-                LOG.debug(" - Stopping plugin " + str(worker))
+                worker_alive = False
+                if (plugin_uuid in PLUGINS_THRS):
+                    worker = PLUGINS_THRS[plugin_uuid]
+                    LOG.debug(" - Stopping plugin " + str(worker))
 
-                if worker.isAlive():
+                    pyvers = platform.python_version_tuple()
+
+                    if int(pyvers[0]) == 3 and int(pyvers[1]) >= 9:
+                        worker_alive = worker.is_alive()
+                    else:
+                        worker_alive = worker.isAlive()
+
+                if worker_alive:
 
                     if 'delay' in parameters:
                         time.sleep(delay)
@@ -556,9 +583,17 @@ class PluginManager(Module.Module):
 
         try:
 
-            if (plugin_uuid in PLUGINS_THRS) and (
-                    PLUGINS_THRS[plugin_uuid].isAlive()
-            ):
+            worker_alive = False
+            if (plugin_uuid in PLUGINS_THRS):
+                worker = PLUGINS_THRS[plugin_uuid]
+
+                pyvers = platform.python_version_tuple()
+                if int(pyvers[0]) == 3 and int(pyvers[1]) >= 9:
+                    worker_alive = worker.is_alive()
+                else:
+                    worker_alive = worker.isAlive()
+
+            if (plugin_uuid in PLUGINS_THRS) and worker_alive:
 
                 message = "Plugin " + plugin_uuid + " already started!"
                 LOG.warning(" - " + message)
@@ -727,7 +762,14 @@ class PluginManager(Module.Module):
 
                         if plugin_uuid in PLUGINS_THRS:
                             worker = PLUGINS_THRS[plugin_uuid]
-                            if worker.isAlive():
+
+                            pyvers = platform.python_version_tuple()
+                            if int(pyvers[0]) == 3 and int(pyvers[1]) >= 9:
+                                worker_alive = worker.is_alive()
+                            else:
+                                worker_alive = worker.isAlive()
+
+                            if worker_alive:
                                 LOG.info(" - Plugin '"
                                          + plugin_name + "' is running...")
                                 worker.stop()
@@ -798,17 +840,28 @@ class PluginManager(Module.Module):
 
                     worker = PLUGINS_THRS[plugin_uuid]
 
+                    pyvers = platform.python_version_tuple()
+                    if int(pyvers[0]) == 3 and int(pyvers[1]) >= 9:
+                        worker_alive = worker.is_alive()
+                    else:
+                        worker_alive = worker.isAlive()
+
                     # STOP PLUGIN----------------------------------------------
 
-                    if worker.isAlive():
+                    if worker_alive:
 
                         LOG.info(" - Thread "
                                  + plugin_uuid + " is running, stopping...")
                         LOG.debug(" - Stopping plugin " + str(worker))
                         worker.stop()
 
-                    while worker.isAlive():
-                        pass
+                    if int(pyvers[0]) == 3 and int(pyvers[1]) >= 9:
+                        worker_alive = worker.is_alive()
+                        while worker.is_alive():
+                            pass
+                    else:
+                        while worker.isAlive():
+                            pass
 
                     # Remove from plugin thread list
                     del PLUGINS_THRS[plugin_uuid]
@@ -893,7 +946,13 @@ class PluginManager(Module.Module):
 
                 worker = PLUGINS_THRS[plugin_uuid]
 
-                if worker.isAlive():
+                pyvers = platform.python_version_tuple()
+                if int(pyvers[0]) == 3 and int(pyvers[1]) >= 9:
+                    worker_alive = worker.is_alive()
+                else:
+                    worker_alive = worker.isAlive()
+
+                if worker_alive:
                     result = "ALIVE"
                 else:
                     result = "DEAD"

@@ -101,7 +101,7 @@ print(' - logrotate configured.')
 os.system('cp ' + py_dist_pack + '/iotronic_lightningrod/etc/systemd/system/'
           + 's4t-lightning-rod.service '
           + '/etc/systemd/system/lightning-rod.service')
-os.chmod('/etc/systemd/system/lightning-rod.service', 0o744)
+
 print('Lightning-rod systemd script installed.')
 
 

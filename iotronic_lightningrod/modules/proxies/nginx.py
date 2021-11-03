@@ -24,7 +24,6 @@ LOG = logging.getLogger(__name__)
 
 import json
 import os
-import shutil
 import subprocess
 import time
 
@@ -212,6 +211,16 @@ class ProxyManager(Proxy.Proxy):
             nginx_board_conf = '''server {{
                 listen              50000;
                 server_name    {0};
+
+                proxy_set_header Host $http_host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
+
+
                 location / {{
                     proxy_pass http://127.0.0.1:1474;
                 }}
@@ -294,6 +303,39 @@ class ProxyManager(Proxy.Proxy):
 
         return json.dumps(nginxMsg)
 
+    def _proxyRenewWebservice(self):
+
+        nginxMsg = {}
+
+        try:
+
+            command = "/usr/bin/certbot " \
+                      "renew " \
+                      "--force-renewal " \
+                      "-w /var/www/html"
+
+            LOG.info("Certbot is renewing certificate:")
+            LOG.info(command)
+
+            certbot_result = call(command, shell=True)
+            LOG.info("CERTBOT RESULT: " + str(certbot_result))
+
+            if (certbot_result == 0):
+                nginxMsg['result'] = "SUCCESS"
+                nginxMsg['message'] = "Webservice certificate renewed."
+            else:
+                nginxMsg['result'] = "ERROR"
+                nginxMsg['message'] = "Renewing certificate failure."
+
+            LOG.info("--> " + nginxMsg['message'])
+
+        except Exception as err:
+            nginxMsg['log'] = "Renewing certificate error: " + str(err)
+            nginxMsg['code'] = ""
+            LOG.warning("--> " + nginxMsg['log'])
+
+        return json.dumps(nginxMsg)
+
     def _exposeWebservice(self, board_dns, service_dns, local_port, dns_list):
 
         nginxMsg = {}
@@ -316,7 +358,7 @@ class ProxyManager(Proxy.Proxy):
                 proxy_set_header Connection "upgrade";
 
                 location / {{
-                    proxy_pass http://localhost:{1};
+                    proxy_pass http://127.0.0.1:{1};
                 }}
                 location ~ /.well-known {{
                     root /var/www/html;

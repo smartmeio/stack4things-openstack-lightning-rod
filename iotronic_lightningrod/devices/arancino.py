@@ -15,23 +15,29 @@
 
 __author__ = "Nicola Peditto <n.peditto@gmail.com>"
 
+import inspect
+
 from iotronic_lightningrod.devices import Device
-from iotronic_lightningrod.devices.gpio import yun
+from iotronic_lightningrod.devices.gpio import arancino
 
 from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
-# Linino references: http://wiki.linino.org/doku.php?id=wiki:lininoio_sysfs
+
+def whoami():
+    return inspect.stack()[1][3]
+
+
+def makeNothing():
+    pass
 
 
 class System(Device.Device):
 
     def __init__(self):
-        super(System, self).__init__("yun")
+        super(System, self).__init__("arancino")
 
-        self.gpio = yun.YunGpio()
-
-        self.gpio.EnableGPIO()
+        arancino.ArancinoGpio().EnableGPIO()
 
     def finalize(self):
         """Function called at the end of module loading (after RPC registration).
@@ -41,33 +47,10 @@ class System(Device.Device):
         """
         pass
 
-    async def testLED(self):
-        LOG.info(" - testLED CALLED...")
-
-        await self.gpio.blinkLed()
-
-        result = "testLED: LED blinking!\n"
-        LOG.info(result)
-        return result
-
-    async def setGPIOs(self, Dpin, direction, value):
-
-        LOG.info(" - setGPIOs CALLED... digital pin " + Dpin
-                 + " (GPIO n. " + self.gpio.MAPPING[Dpin] + ")")
-
-        result = await self.gpio._setGPIOs(Dpin, direction, value)
-        LOG.info(result)
-        return result
-
-    async def readVoltage(self, Apin):
-        """To read the voltage applied on the pin A0,A1,A2,A3,A4,A5
-
-        """
-        LOG.info(" - readVoltage CALLED... reading pin " + Apin)
-
-        voltage = await self.gpio._readVoltage(Apin)
-
-        result = "read voltage for " + Apin + " pin: " + voltage
-
+    async def testRPC(self):
+        rpc_name = whoami()
+        LOG.info("RPC " + rpc_name + " CALLED...")
+        await makeNothing()
+        result = " - " + rpc_name + " result: testRPC is working!!!\n"
         LOG.info(result)
         return result

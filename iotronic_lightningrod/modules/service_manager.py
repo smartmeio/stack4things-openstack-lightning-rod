@@ -1,5 +1,4 @@
-# Copyright 2017 MDSLAB - University of Messina
-# All Rights Reserved.
+#    Copyright 2017 MDSLAB - University of Messina. All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -24,9 +23,6 @@ import signal
 import socket
 import subprocess
 import time
-
-import threading
-
 import copy
 from datetime import datetime
 from random import randint
@@ -36,9 +32,7 @@ from urllib.parse import urlparse
 from iotronic_lightningrod.common import utils
 from iotronic_lightningrod.config import package_path
 from iotronic_lightningrod.modules import Module
-
 from iotronic_lightningrod import lightningrod
-
 import iotronic_lightningrod.wampmessage as WM
 
 
@@ -100,6 +94,8 @@ class ServiceManager(Module.Module):
         wurl_list = board.wamp_config["url"].split(':')
         if wurl_list[0] == "wss":
             is_wss = True
+
+        self.board_id = board.uuid
 
         if is_wss:
             self.wstun_url = "wss://" + self.wstun_ip + ":" + self.wstun_port
@@ -600,7 +596,7 @@ class ServiceManager(Module.Module):
         except Exception as err:
             LOG.error(" --> Parsing error in " + s_conf_FILE + ": " + str(err))
 
-            if os.path.isfile(s_conf_FILE):
+            if os.path.isfile(s_conf_FILE + '.bkp '):
 
                 LOG.info(" --> restoring services.json file...")
 
@@ -620,6 +616,28 @@ class ServiceManager(Module.Module):
             else:
                 LOG.error(" --> services.json backup file does not exist!")
                 s_conf = None
+
+            if s_conf == None:
+                try:
+                    LOG.info(" --> loading services.json template file")
+                    template_conf = '''{
+                        "services": {
+
+                        }
+                    }
+                    '''
+                    with open(s_conf_FILE, "w") as text_file:
+                        text_file.write("%s" % template_conf)
+
+                    with open(s_conf_FILE) as settings:
+                        s_conf = json.load(settings)
+
+                except Exception as err:
+                    LOG.error(
+                        " --> Loading template error: \
+                        manual check on device required!"
+                    )
+                    s_conf = None
 
         return s_conf
 
@@ -762,16 +780,24 @@ class ServiceManager(Module.Module):
 
             try:
 
+                # subp_cmd = [CONF.services.wstun_bin, opt_reverse,
+                #            self.wstun_url, '-u "' + str(self.board_id) + '"']
+
+                subp_cmd = [CONF.services.wstun_bin, opt_reverse,
+                            self.wstun_url, '-u', '' + str(self.board_id) + '']
+
                 wstun = subprocess.Popen(
-                    [CONF.services.wstun_bin, opt_reverse, self.wstun_url],
+                    subp_cmd,
                     stdout=subprocess.PIPE
                 )
 
                 if (event != "boot"):
                     print("WSTUN start event:")
 
-                cmd_print = 'WSTUN exec: ' + str(CONF.services.wstun_bin) \
-                            + " " + opt_reverse + ' ' + self.wstun_url
+                # cmd_print = 'WSTUN exec: ' + str(CONF.services.wstun_bin) \
+                #            + " " + opt_reverse + ' ' + self.wstun_url
+                cmd_print = 'WSTUN exec: ' + str(subp_cmd)
+
                 print(" - " + str(cmd_print))
                 LOG.debug(cmd_print)
 
@@ -845,16 +871,24 @@ class ServiceManager(Module.Module):
             )
 
         try:
+
+            # subp_cmd = [CONF.services.wstun_bin, opt_reverse, self.wstun_url,
+            #            '-u "' + str(self.board_id) + '"']
+
+            subp_cmd = [CONF.services.wstun_bin, opt_reverse, self.wstun_url,
+                        '-u', '' + str(self.board_id) + '']
+
             wstun = subprocess.Popen(
-                [CONF.services.wstun_bin, opt_reverse, self.wstun_url],
+                subp_cmd,
                 stdout=subprocess.PIPE
             )
 
             if (event != "boot"):
                 print("WSTUN start event:")
 
-            cmd_print = 'WSTUN exec: ' + str(CONF.services.wstun_bin) + " " \
-                        + opt_reverse + ' ' + self.wstun_url
+            # cmd_print = 'WSTUN exec: ' + str(CONF.services.wstun_bin) + " " \
+            #            + opt_reverse + ' ' + self.wstun_url
+            cmd_print = 'WSTUN exec: ' + str(subp_cmd)
             print(" - " + str(cmd_print))
             LOG.debug(cmd_print)
 
@@ -926,9 +960,32 @@ class ServiceManager(Module.Module):
         if parameters is not None:
             LOG.info(" - " + rpc_name + " parameters: " + str(parameters))
 
-        thr_list = str(threading.enumerate())
+        tuns = {
+            "sockets": [],
+            "procs": []
+        }
 
-        w_msg = WM.WampSuccess(msg=thr_list, req_id=req_id)
+        """ LSOF """
+        res_lsof = subprocess.Popen(
+            "lsof -i -n -P | grep '8080'| grep -v grep",
+            shell=True,
+            stdout=subprocess.PIPE
+        )
+        sockets = res_lsof.communicate()[0].decode("utf-8").split("\n")
+
+        tuns['sockets'] = sockets[:-1]
+
+        """ PS """
+        res_ps = subprocess.Popen(
+            "ps aux | grep 'wstun' | grep -v grep",
+            shell=True,
+            stdout=subprocess.PIPE
+        )
+        ps_s4t = res_ps.communicate()[0].decode("utf-8").split("\n")
+
+        tuns['procs'] = ps_s4t[:-1]
+
+        w_msg = WM.WampSuccess(msg=tuns, req_id=req_id)
 
         return w_msg.serialize()
 

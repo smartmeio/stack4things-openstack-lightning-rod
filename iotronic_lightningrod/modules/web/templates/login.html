@@ -28,7 +28,10 @@
 
 <div class="login-form">
     <form action="{{ url_for('login', next=request.args.get('next')) }}" method="post">
-		<div class="avatar"><i class="material-icons">&#xE7FF;</i></div>
+		  <!--<div class="avatar"><i class="material-icons">&#xE7FF;</i></div>-->
+      <center>
+        <img src="{{ url_for('static', filename='images/stack4thingslogo.png') }}" alt="stack4thingslogo" width="200" height="200">
+      </center>  
     	<h4 class="modal-title">Login to Lightning-rod</h4>
         <div class="form-group">
             <input type="text" class="form-control" name="username" placeholder="Username" required="required" value="{{request.form.username }}">
