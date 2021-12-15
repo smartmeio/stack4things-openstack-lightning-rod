@@ -787,32 +787,32 @@ class DeviceManager(Module.Module):
                 response = requests.request(
                     method,
                     url,
-                    params=json.dumps(parameters['params']) if '\
-                        params' in parameters else None,
-                    data=json.dumps(parameters['data']) if '\
-                        data' in parameters else None,
-                    json=parameters['json'] if '\
-                        json' in parameters else None,
-                    headers=parameters['headers'] if '\
-                        headers' in parameters else None,
-                    cookies=parameters['cookies'] if '\
-                        cookies' in parameters else None,
-                    files=parameters['files'] if '\
-                        files' in parameters else None,
-                    auth=parameters['auth'] if '\
-                        auth' in parameters else None,
-                    timeout=float(parameters['timeout']) if '\
-                        timeout' in parameters else None,
-                    allow_redirects=parameters['allow_redirects'] if '\
-                        allow_redirects' in parameters else True,
-                    proxies=parameters['proxies'] if '\
-                        proxies' in parameters else None,
-                    verify=parameters['verify'] if '\
-                        verify' in parameters else True,
-                    stream=parameters['stream'] if '\
-                        stream' in parameters else False,
-                    cert=parameters['cert'] if '\
-                        cert' in parameters else None,
+                    params=json.dumps(parameters['params']) \
+                        if 'params' in parameters else None,
+                    data=json.dumps(parameters['data']) \
+                        if 'data' in parameters else None,
+                    json=parameters['json'] \
+                        if 'json' in parameters else None,
+                    headers=parameters['headers'] \
+                        if 'headers' in parameters else None,
+                    cookies=parameters['cookies'] \
+                        if 'cookies' in parameters else None,
+                    files=parameters['files'] \
+                        if 'files' in parameters else None,
+                    auth=parameters['auth'] \
+                        if 'auth' in parameters else None,
+                    timeout=float(parameters['timeout']) \
+                        if 'timeout' in parameters else None,
+                    allow_redirects=parameters['allow_redirects'] \
+                        if 'allow_redirects' in parameters else True,
+                    proxies=parameters['proxies'] \
+                        if 'proxies' in parameters else None,
+                    verify=parameters['verify'] \
+                        if 'verify' in parameters else True,
+                    stream=parameters['stream'] \
+                        if 'stream' in parameters else False,
+                    cert=parameters['cert'] \
+                        if 'cert' in parameters else None,
 
                 )
 
